@@ -1969,8 +1969,8 @@ if __name__ == "__main__":
   }
 
   const REPO_OWNER = 'husounlu67-del';
-  const REPO_NAME  = 'nowa-alarm';
-  const FILE_PATH  = 'market_alarm.py';
+  const REPO_NAME  = 'ar-market';
+  const FILE_PATH  = 'ar_alarm.py';
   const API_URL    = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`;
 
   toast('i', 'Yükleniyor...', 'GitHub\'a script yükleniyor...');
@@ -2004,7 +2004,7 @@ if __name__ == "__main__":
 
     if (putResp.ok) {
       const cnt = alarmLines.length;
-      toast('s', 'GitHub\'a Yüklendi!', `market_alarm.py güncellendi — ${cnt} alarm — v${version}. Termux otomatik güncellenecek.`);
+      toast('s', 'GitHub\'a Yüklendi!', `ar_alarm.py güncellendi — ${cnt} alarm — v${version}. Termux otomatik güncellenecek.`);
     } else {
       const err = await putResp.json();
       toast('e', 'Yükleme Hatası', err.message || 'GitHub API hatası.');
@@ -2020,7 +2020,7 @@ const GIST_FILE = "ar_alarm.json";
 // Token kullanici tarafindan UI'dan girilir, kodda saklanmaz
 let GIST_TOKEN = localStorage.getItem('ar_gist_token') || '';
 
-let gistSaveTimer = 10000;
+let gistSaveTimer = null;
 
 function setInd(text, color) {
   const ind = document.getElementById('gist-ind');
@@ -2101,7 +2101,7 @@ async function save() {
     } else {
       setInd('☁ Hata!', '#ff4455');
     }
-  }, 10000);
+  }, 300);
 }
 
 function promptToken() {
