@@ -240,8 +240,61 @@ tbody td{padding:0;vertical-align:middle;}
 ::-webkit-scrollbar-track{background:var(--bg);}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
 </style>
+<style id="pw-style">
+#pw-overlay{position:fixed;inset:0;background:#050810;z-index:99999;display:flex;align-items:center;justify-content:center;}
+#pw-overlay::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,200,255,.02)1px,transparent 1px),linear-gradient(90deg,rgba(0,200,255,.02)1px,transparent 1px);background-size:40px 40px;}
+.pw-box{background:#0d1117;border:1px solid rgba(0,200,255,.25);border-radius:14px;padding:44px 38px;width:340px;position:relative;z-index:1;}
+.pw-logo{text-align:center;margin-bottom:30px;}
+.pw-logo-icon{width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,#00c8ff,#005580);display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto 10px;box-shadow:0 0 20px rgba(0,200,255,.3);}
+.pw-logo-txt{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;letter-spacing:3px;color:#fff;}
+.pw-logo-sub{font-family:'Share Tech Mono',monospace;font-size:10px;color:#00c8ff;letter-spacing:3px;}
+.pw-label{font-family:'Rajdhani',sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#6a8098;margin-bottom:7px;}
+.pw-input-wrap{position:relative;margin-bottom:14px;}
+.pw-input{width:100%;background:rgba(0,0,0,.4);border:1px solid rgba(0,200,255,.2);border-radius:7px;padding:11px 14px;color:#cdd9e5;font-family:'Share Tech Mono',monospace;font-size:15px;outline:none;transition:border-color .2s;box-sizing:border-box;}
+.pw-input:focus{border-color:#00c8ff;}
+.pw-btn{width:100%;padding:12px;background:linear-gradient(135deg,#00c8ff,#0080aa);border:none;border-radius:7px;color:#000;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:opacity .2s;}
+.pw-btn:hover{opacity:.85;}
+.pw-error{color:#ff4455;font-family:'Rajdhani',sans-serif;font-size:13px;text-align:center;margin-top:10px;min-height:18px;}
+</style>
 </head>
 <body>
+<div id="pw-overlay">
+  <div class="pw-box">
+    <div class="pw-logo">
+      <div class="pw-logo-icon">⚔</div>
+      <div class="pw-logo-txt">AR ALARM</div>
+      <div class="pw-logo-sub">GİRİŞ GEREKLİ</div>
+    </div>
+    <div class="pw-label">Şifre</div>
+    <div class="pw-input-wrap">
+      <input class="pw-input" id="pw-input" type="password" placeholder="••••••••"
+        onkeydown="if(event.key==='Enter')checkPw()">
+    </div>
+    <button class="pw-btn" onclick="checkPw()">GİRİŞ YAP</button>
+    <div class="pw-error" id="pw-error"></div>
+  </div>
+</div>
+<script>
+(function(){
+  const K = 'ar_pw_ok';
+  if(sessionStorage.getItem(K)==='1'){
+    document.getElementById('pw-overlay').style.display='none';
+    document.getElementById('pw-style').remove();
+  }
+  window.checkPw = function(){
+    const v = document.getElementById('pw-input').value;
+    if(v === '9848138'){
+      sessionStorage.setItem(K,'1');
+      document.getElementById('pw-overlay').style.display='none';
+      document.getElementById('pw-style').remove();
+    } else {
+      document.getElementById('pw-error').textContent='Hatalı şifre!';
+      document.getElementById('pw-input').value='';
+      document.getElementById('pw-input').focus();
+    }
+  };
+})();
+</script>
 
 <!-- HEADER -->
 <header>
@@ -967,15 +1020,15 @@ function importData() {
         if (d.prices) prices = d.prices;
         if (d.customItems) customItems = d.customItems;
         if (d.selLv) selLv = d.selLv;
+
+        // Onaylı ID'leri yükle (learnedIDs)
         if (d.learnedIDs) {
-          // Yeni ID'leri mevcut learnedIDs'e merge et
           Object.assign(learnedIDs, d.learnedIDs);
-          // Her ID'yi CONFIRMED_IDS'e ekle
           Object.keys(d.learnedIDs).forEach(id => CONFIRMED_IDS.add(id));
-          // CAT_DATA'daki seviyelere ID'leri işle
           const idMap = d.learnedIDs;
           for (const cat of CAT_DATA) {
-            for (const item of cat.items) {
+            const allItems = [...cat.items, ...(customItems[cat.id]||[])];
+            for (const item of allItems) {
               for (const lv of item.levels) {
                 const fullName = item.name + ' ' + lv.level;
                 for (const [id, name] of Object.entries(idMap)) {
@@ -988,10 +1041,46 @@ function importData() {
             }
           }
         }
+
+        // Onaylı + TAHMİN ID'leri yükle (savedIDs)
+        if (d.savedIDs) {
+          restoreCatIds(d.savedIDs);
+        }
+
+        // catIds formatını da destekle (eski export)
+        if (d.catIds) {
+          for (const cat of CAT_DATA) {
+            if (!d.catIds[cat.id]) continue;
+            const allItems = [...cat.items, ...(customItems[cat.id]||[])];
+            for (const item of allItems) {
+              if (!d.catIds[cat.id][item.name]) continue;
+              for (const lv of item.levels) {
+                const saved = d.catIds[cat.id][item.name][lv.level];
+                if (!saved || !saved.ids || saved.ids.length === 0) continue;
+                for (const id of saved.ids) {
+                  if (!lv.ids.includes(id)) lv.ids.push(id);
+                  if (saved.confirmed) {
+                    CONFIRMED_IDS.add(id);
+                    learnedIDs[id] = item.name + ' ' + lv.level;
+                    lv.confirmed = true;
+                  }
+                }
+              }
+            }
+          }
+        }
+
         initPrices();
         save(); buildCatTabs(); renderTable();
-        const idCnt = d.learnedIDs ? Object.keys(d.learnedIDs).length : 0;
-        toast('s', 'İçe Aktarıldı', `Fiyatlar + ${idCnt} ID yüklendi.`);
+        const confCnt = Object.keys(learnedIDs).length;
+        let predCnt = 0;
+        for (const cat of CAT_DATA) {
+          const allItems = [...cat.items, ...(customItems[cat.id]||[])];
+          for (const item of allItems)
+            for (const lv of item.levels)
+              predCnt += lv.ids.filter(id => !CONFIRMED_IDS.has(id)).length;
+        }
+        toast('s', 'İçe Aktarıldı', `${confCnt} onaylı + ${predCnt} tahmin ID yüklendi.`);
       } catch(err) { toast('e', 'Hata', 'Geçersiz dosya: ' + err.message); }
     };
     r.readAsText(e.target.files[0]);
@@ -1613,14 +1702,8 @@ PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
 GAME_SERVER      = "213.238.175.102"
 
 # -- Telegram ---------------------------------
-# -- Telegram (Alarm botu) --------------------
 TELEGRAM_TOKEN   = "8094835962:AAEdADtpFdeR9MK6f_2SJ3u5flCfR4mCMjI"
 TELEGRAM_CHAT_ID = "1598896323"
-# -- Telegram (Durum botu - sessiz) -----------
-STATUS_TOKEN     = "8779317188:AAGIhv8v6YrRNScdPkyLJTNBaZtezIf3dPg"
-STATUS_CHAT_ID   = "1598896323"
-STATUS_INTERVAL  = 15 * 60  # 15 dakikada bir
-# ---------------------------------------------
 # ---------------------------------------------
 
 ALARM_LIST = [
@@ -1804,11 +1887,75 @@ def parse_market_records(data):
             i += 1
     return records
 
-def check_alarms(records, prev_cheapest=None):
+def parse_per_packet(pkts, link_type=1):
+    """Her TCP paketini ayri ayri parse et - dogrulama icin."""
+    verified = set()
+    for pkt in pkts:
+        try:
+            if link_type == 276:
+                if len(pkt) < 22 or struct.unpack(">H", pkt[0:2])[0] != 0x0800: continue
+                ip_start = 20
+            elif link_type == 113:
+                if len(pkt) < 16 or struct.unpack(">H", pkt[14:16])[0] != 0x0800: continue
+                ip_start = 16
+            else:
+                if len(pkt) < 14 or struct.unpack(">H", pkt[12:14])[0] != 0x0800: continue
+                ip_start = 14
+            if len(pkt) <= ip_start + 20: continue
+            if (pkt[ip_start] >> 4) != 4: continue
+            ihl = (pkt[ip_start] & 0x0F) * 4
+            if pkt[ip_start + 9] != 6: continue
+            ts = ip_start + ihl
+            if len(pkt) <= ts + 20: continue
+            doff = ((pkt[ts + 12] >> 4) & 0xF) * 4
+            data = pkt[ts + doff:]
+            if len(data) < 22: continue
+            n = len(data)
+            i = 0
+            while i < n - 22:
+                if data[i] == 0xaa and i+1 < n and data[i+1] == 0x55:
+                    i += 2; continue
+                if i + 2 > n: break
+                name_len = struct.unpack("<H", data[i:i+2])[0]
+                if not (2 <= name_len <= 25): i += 1; continue
+                name_start = i + 2
+                name_end   = name_start + name_len * 2
+                if name_end + 20 > n: i += 1; continue
+                try:
+                    name = data[name_start:name_end].decode("utf-16-le")
+                except:
+                    i += 1; continue
+                if not (all(32 <= ord(c) < 127 for c in name) and len(name) >= 2):
+                    i += 1; continue
+                j = name_end
+                item_count = 0
+                while j + 20 <= n:
+                    item_id = data[j+1:j+5].hex()
+                    price   = struct.unpack("<I", data[j+9:j+13])[0]
+                    if 10_000 <= price <= 9_999_999_999 and all(x == 0 for x in data[j+13:j+20]):
+                        verified.add((name, item_id, price))
+                        item_count += 1
+                        j += 20
+                    else:
+                        break
+                if item_count > 0: i = j
+                else: i += 1
+        except:
+            pass
+    return verified
+
+
+def check_alarms(records, pkts=None, link_type=1):
     if not records:
         log("  Kayit bulunamadi.")
-        return {}
+        return
     log(f"  {len(records)} kayit / {len(set(r['item_id'] for r in records))} unique ID analiz ediliyor...")
+
+    verified = None
+    if pkts:
+        verified = parse_per_packet(pkts, link_type)
+        log(f"  Dogrulama: bireysel paketlerde {len(verified)} kayit bulundu")
+
     cheapest = {}
     for r in records:
         iid = r["item_id"]
@@ -1821,11 +1968,11 @@ def check_alarms(records, prev_cheapest=None):
         if not hits: continue
         best = min(hits, key=lambda x: x["price"])
         if best["price"] <= alarm["max_price"]:
-            iid = best["item_id"]
-            if prev_cheapest and iid in prev_cheapest:
-                prev_price = prev_cheapest[iid]["price"]
-                if abs(best["price"] - prev_price) / max(prev_price, 1) > 0.3:
-                    log(f"  ? {alarm['name']:<35} fiyat tutarsiz ({prev_price:,} -> {best['price']:,}), atlandi")
+            if verified is not None:
+                key = (best["seller"], best["item_id"], best["price"])
+                if key not in verified:
+                    log(f"  ! SAHTE ALARM ENGELLENDI: {alarm['name']} @ {best['price']:,} gold")
+                    log(f"    Birlesik akisda var, bireysel pakette yok (paket siniri hatasi)")
                     continue
             fire_alarm(alarm["name"], best["seller"], best["price"], alarm["max_price"])
             fired += 1
@@ -1837,7 +1984,6 @@ def check_alarms(records, prev_cheapest=None):
         log(f"  [{len(unknown)} bilinmeyen ID pazarda goruldu]")
     if fired == 0: log("  -> Esik altinda alarm yok.")
     else:          log(f"  *** {fired} ALARM ATESLENEDI! ***")
-    return cheapest
 
 def send_telegram(text):
     try:
@@ -1854,29 +2000,10 @@ def send_telegram(text):
     except Exception as e:
         log(f"  Telegram hatasi: {e}")
 
-def send_status(text):
-    try:
-        url     = f"https://api.telegram.org/bot{STATUS_TOKEN}/sendMessage"
-        payload = _json.dumps({
-            "chat_id": STATUS_CHAT_ID,
-            "text": text,
-            "disable_notification": True
-        }).encode("utf-8")
-        req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
-        ctx = _ssl._create_unverified_context()
-        with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
-            body = resp.read().decode("utf-8")
-            if '"ok":true' in body:
-                log("  Durum mesaji gonderildi.")
-            else:
-                log(f"  Durum botu hatasi: {body[:200]}")
-    except Exception as e:
-        log(f"  Durum botu hatasi: {e}")
-
 def fire_alarm(item_name, seller, price, max_price):
     log(f"  *** ALARM *** {item_name}  |  {seller}  |  {price:,} gold")
     msg = (
-        "AR MARKET ALARMI!\\n\\n"
+        "NOWA PAZAR ALARMI!\\n\\n"
         f"Item  : {item_name}\\n"
         f"Satan : {seller}\\n"
         f"Fiyat : {price:,} gold\\n"
@@ -1901,16 +2028,13 @@ def main():
 
     # Telegram testi
     log("Telegram test ediliyor...")
-    send_telegram(f"AR Market Alarm baslatildi (v{VERSION}). {len(ALARM_LIST)} alarm aktif.")
-    send_status(f"✅ AR Market Alarm baslatildi (v{VERSION})\\n⏱ {datetime.now().strftime('%H:%M')} — {len(ALARM_LIST)} alarm aktif")
+    send_telegram(f"NOWA Alarm baslatildi (v{VERSION}). {len(ALARM_LIST)} alarm aktif.")
     log("")
 
-    scan_no           = 0
-    tcpdump_proc      = None
-    prev_cheapest     = {}
+    scan_no      = 0
+    tcpdump_proc = None
     last_update_check = time.time()
-    last_status_send  = time.time()
-    UPDATE_CHECK_INTERVAL = 60
+    UPDATE_CHECK_INTERVAL = 60  # Her 60 saniyede versiyon kontrol et
 
     BURST_THRESHOLD = 15_000
     BURST_END_SECS  = 3
@@ -1932,12 +2056,7 @@ def main():
                 if time.time() - last_update_check >= UPDATE_CHECK_INTERVAL:
                     last_update_check = time.time()
                     log("Guncelleme kontrol ediliyor...")
-                    check_update()
-
-                # Durum mesaji (her 15 dakika, sessiz)
-                if time.time() - last_status_send >= STATUS_INTERVAL:
-                    last_status_send = time.time()
-                    send_status(f"✅ AR Market Alarm calisiyor (v{VERSION})\\n⏱ {datetime.now().strftime('%H:%M')} — {scan_no} tarama yapildi")
+                    check_update()  # Yeni versiyon varsa buradan yeniden baslatir
 
                 sz   = get_pcap_size()
                 diff = sz - prev_size
@@ -1977,7 +2096,7 @@ def main():
                 log("  Server verisi bos.")
             else:
                 recs = parse_market_records(payload)
-                prev_cheapest = check_alarms(recs, prev_cheapest)
+                check_alarms(recs, pkts=pkts, link_type=link_type)
 
             log("  30sn sonra persomeni tekrar ac.")
             log("")
@@ -2044,7 +2163,7 @@ if __name__ == "__main__":
 
     if (putResp.ok) {
       const cnt = alarmLines.length;
-      toast('s', 'GitHub\'a Yüklendi!', `market_alarm.py güncellendi — ${cnt} alarm — v${version}. Termux otomatik güncellenecek.`);
+      toast('s', 'GitHub\'a Yüklendi!', `ar_alarm.py güncellendi — ${cnt} alarm — v${version}. Termux otomatik güncellenecek.`);
     } else {
       const err = await putResp.json();
       toast('e', 'Yükleme Hatası', err.message || 'GitHub API hatası.');
@@ -2060,7 +2179,7 @@ const GIST_FILE = "ar_alarm.json";
 // Token kullanici tarafindan UI'dan girilir, kodda saklanmaz
 let GIST_TOKEN = localStorage.getItem('ar_gist_token') || '';
 
-let gistSaveTimer = 10000;
+let gistSaveTimer = null;
 
 function setInd(text, color) {
   const ind = document.getElementById('gist-ind');
@@ -2141,7 +2260,7 @@ async function save() {
     } else {
       setInd('☁ Hata!', '#ff4455');
     }
-  }, 10000);
+  }, 300);
 }
 
 function promptToken() {
