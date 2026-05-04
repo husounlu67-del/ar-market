@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20260504210807
+Versiyon : 20260504211152
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,7 +16,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20260504210807"
+VERSION          = "20260504211152"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
@@ -34,6 +34,7 @@ STATUS_INTERVAL  = 15 * 60  # 15 dakikada bir
 # ---------------------------------------------
 
 ALARM_LIST = [
+    {"name": "Hell Strike +0", "max_price": 2100000000, "item_ids": ["2f1ae308"]},
     {"name": "Hell Strike +1", "max_price": 2100000000, "item_ids": ["a51ae308"]},
     {"name": "Hell Strike +2", "max_price": 21000000001, "item_ids": ["a61ae308"]},
     {"name": "Hell Strike +3", "max_price": 210000000011, "item_ids": ["a71ae308"]},
