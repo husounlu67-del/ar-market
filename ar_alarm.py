@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20260504081541
+Versiyon : 20260504204917
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,7 +16,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20260504081541"
+VERSION          = "20260504204917"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
@@ -28,7 +28,12 @@ TELEGRAM_CHAT_ID = "1598896323"
 # ---------------------------------------------
 
 ALARM_LIST = [
-    {"name": "Hope's Frozen Staff +8", "max_price": 220000000, "item_ids": ["387a450b"]},
+    {"name": "Hell Strike +1", "max_price": 1, "item_ids": ["a51ae308"]},
+    {"name": "Hell Strike +2", "max_price": 1, "item_ids": ["a61ae308"]},
+    {"name": "Hell Strike +3", "max_price": 11, "item_ids": ["a71ae308"]},
+    {"name": "Hell Strike +4", "max_price": 1, "item_ids": ["a81ae308"]},
+    {"name": "Hell Strike +5", "max_price": 1, "item_ids": ["a91ae308"]},
+    {"name": "Hell Strike +6", "max_price": 1, "item_ids": ["aa1ae308"]},
 ]
 # =============================================
 
@@ -208,11 +213,75 @@ def parse_market_records(data):
             i += 1
     return records
 
-def check_alarms(records):
+def parse_per_packet(pkts, link_type=1):
+    """Her TCP paketini ayri ayri parse et - dogrulama icin."""
+    verified = set()
+    for pkt in pkts:
+        try:
+            if link_type == 276:
+                if len(pkt) < 22 or struct.unpack(">H", pkt[0:2])[0] != 0x0800: continue
+                ip_start = 20
+            elif link_type == 113:
+                if len(pkt) < 16 or struct.unpack(">H", pkt[14:16])[0] != 0x0800: continue
+                ip_start = 16
+            else:
+                if len(pkt) < 14 or struct.unpack(">H", pkt[12:14])[0] != 0x0800: continue
+                ip_start = 14
+            if len(pkt) <= ip_start + 20: continue
+            if (pkt[ip_start] >> 4) != 4: continue
+            ihl = (pkt[ip_start] & 0x0F) * 4
+            if pkt[ip_start + 9] != 6: continue
+            ts = ip_start + ihl
+            if len(pkt) <= ts + 20: continue
+            doff = ((pkt[ts + 12] >> 4) & 0xF) * 4
+            data = pkt[ts + doff:]
+            if len(data) < 22: continue
+            n = len(data)
+            i = 0
+            while i < n - 22:
+                if data[i] == 0xaa and i+1 < n and data[i+1] == 0x55:
+                    i += 2; continue
+                if i + 2 > n: break
+                name_len = struct.unpack("<H", data[i:i+2])[0]
+                if not (2 <= name_len <= 25): i += 1; continue
+                name_start = i + 2
+                name_end   = name_start + name_len * 2
+                if name_end + 20 > n: i += 1; continue
+                try:
+                    name = data[name_start:name_end].decode("utf-16-le")
+                except:
+                    i += 1; continue
+                if not (all(32 <= ord(c) < 127 for c in name) and len(name) >= 2):
+                    i += 1; continue
+                j = name_end
+                item_count = 0
+                while j + 20 <= n:
+                    item_id = data[j+1:j+5].hex()
+                    price   = struct.unpack("<I", data[j+9:j+13])[0]
+                    if 10_000 <= price <= 9_999_999_999 and all(x == 0 for x in data[j+13:j+20]):
+                        verified.add((name, item_id, price))
+                        item_count += 1
+                        j += 20
+                    else:
+                        break
+                if item_count > 0: i = j
+                else: i += 1
+        except:
+            pass
+    return verified
+
+
+def check_alarms(records, pkts=None, link_type=1):
     if not records:
         log("  Kayit bulunamadi.")
         return
     log(f"  {len(records)} kayit / {len(set(r['item_id'] for r in records))} unique ID analiz ediliyor...")
+
+    verified = None
+    if pkts:
+        verified = parse_per_packet(pkts, link_type)
+        log(f"  Dogrulama: bireysel paketlerde {len(verified)} kayit bulundu")
+
     cheapest = {}
     for r in records:
         iid = r["item_id"]
@@ -225,6 +294,12 @@ def check_alarms(records):
         if not hits: continue
         best = min(hits, key=lambda x: x["price"])
         if best["price"] <= alarm["max_price"]:
+            if verified is not None:
+                key = (best["seller"], best["item_id"], best["price"])
+                if key not in verified:
+                    log(f"  ! SAHTE ALARM ENGELLENDI: {alarm['name']} @ {best['price']:,} gold")
+                    log(f"    Birlesik akisda var, bireysel pakette yok (paket siniri hatasi)")
+                    continue
             fire_alarm(alarm["name"], best["seller"], best["price"], alarm["max_price"])
             fired += 1
         else:
@@ -347,7 +422,7 @@ def main():
                 log("  Server verisi bos.")
             else:
                 recs = parse_market_records(payload)
-                check_alarms(recs)
+                check_alarms(recs, pkts=pkts, link_type=link_type)
 
             log("  30sn sonra persomeni tekrar ac.")
             log("")
