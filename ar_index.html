@@ -2020,7 +2020,7 @@ const GIST_FILE = "ar_alarm.json";
 // Token kullanici tarafindan UI'dan girilir, kodda saklanmaz
 let GIST_TOKEN = localStorage.getItem('ar_gist_token') || '';
 
-let gistSaveTimer = null;
+let gistSaveTimer = 10000;
 
 function setInd(text, color) {
   const ind = document.getElementById('gist-ind');
