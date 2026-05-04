@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20260504204917
+Versiyon : 20260504205048
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,15 +16,21 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20260504204917"
+VERSION          = "20260504205048"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
 GAME_SERVER      = "213.238.175.102"
 
 # -- Telegram ---------------------------------
+# -- Telegram (Alarm botu) --------------------
 TELEGRAM_TOKEN   = "8094835962:AAEdADtpFdeR9MK6f_2SJ3u5flCfR4mCMjI"
-TELEGRAM_CHAT_ID = "1598896323"
+TELEGRAM_CHAT_IDS = ["1598896323", "8610188409"]
+# -- Telegram (Durum botu - sessiz) -----------
+STATUS_TOKEN     = "8779317188:AAGIhv8v6YrRNScdPkyLJTNBaZtezIf3dPg"
+STATUS_CHAT_ID   = "1598896323"
+STATUS_INTERVAL  = 15 * 60  # 15 dakikada bir
+# ---------------------------------------------
 # ---------------------------------------------
 
 ALARM_LIST = [
@@ -222,10 +228,12 @@ def parse_per_packet(pkts, link_type=1):
                 if len(pkt) < 22 or struct.unpack(">H", pkt[0:2])[0] != 0x0800: continue
                 ip_start = 20
             elif link_type == 113:
-                if len(pkt) < 16 or struct.unpack(">H", pkt[14:16])[0] != 0x0800: continue
+                if len(pkt) < 16: continue
+                if struct.unpack(">H", pkt[14:16])[0] != 0x0800: continue
                 ip_start = 16
             else:
-                if len(pkt) < 14 or struct.unpack(">H", pkt[12:14])[0] != 0x0800: continue
+                if len(pkt) < 14: continue
+                if struct.unpack(">H", pkt[12:14])[0] != 0x0800: continue
                 ip_start = 14
             if len(pkt) <= ip_start + 20: continue
             if (pkt[ip_start] >> 4) != 4: continue
@@ -270,13 +278,13 @@ def parse_per_packet(pkts, link_type=1):
             pass
     return verified
 
-
 def check_alarms(records, pkts=None, link_type=1):
     if not records:
         log("  Kayit bulunamadi.")
         return
     log(f"  {len(records)} kayit / {len(set(r['item_id'] for r in records))} unique ID analiz ediliyor...")
 
+    # Dogrulama: ayni kayitlari paket paket de parse et
     verified = None
     if pkts:
         verified = parse_per_packet(pkts, link_type)
@@ -294,6 +302,7 @@ def check_alarms(records, pkts=None, link_type=1):
         if not hits: continue
         best = min(hits, key=lambda x: x["price"])
         if best["price"] <= alarm["max_price"]:
+            # Dogrulama: bu kayit bireysel pakette de goruldumu?
             if verified is not None:
                 key = (best["seller"], best["item_id"], best["price"])
                 if key not in verified:
@@ -312,24 +321,44 @@ def check_alarms(records, pkts=None, link_type=1):
     else:          log(f"  *** {fired} ALARM ATESLENEDI! ***")
 
 def send_telegram(text):
+    for chat_id in TELEGRAM_CHAT_IDS:
+        try:
+            url     = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+            payload = _json.dumps({"chat_id": chat_id, "text": text}).encode("utf-8")
+            req     = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
+            ctx     = _ssl._create_unverified_context()
+            with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
+                body = resp.read().decode("utf-8")
+                if '"ok":true' in body:
+                    log(f"  Telegram gonderildi -> {chat_id}")
+                else:
+                    log(f"  Telegram hatasi ({chat_id}): {body[:200]}")
+        except Exception as e:
+            log(f"  Telegram hatasi ({chat_id}): {e}")
+
+def send_status(text):
     try:
-        url     = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-        payload = _json.dumps({"chat_id": TELEGRAM_CHAT_ID, "text": text}).encode("utf-8")
-        req     = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
-        ctx     = _ssl._create_unverified_context()
+        url     = f"https://api.telegram.org/bot{STATUS_TOKEN}/sendMessage"
+        payload = _json.dumps({
+            "chat_id": STATUS_CHAT_ID,
+            "text": text,
+            "disable_notification": True
+        }).encode("utf-8")
+        req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
+        ctx = _ssl._create_unverified_context()
         with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
             body = resp.read().decode("utf-8")
             if '"ok":true' in body:
-                log("  Telegram gonderildi.")
+                log("  Durum mesaji gonderildi.")
             else:
-                log(f"  Telegram hatasi: {body[:200]}")
+                log(f"  Durum botu hatasi: {body[:200]}")
     except Exception as e:
-        log(f"  Telegram hatasi: {e}")
+        log(f"  Durum botu hatasi: {e}")
 
 def fire_alarm(item_name, seller, price, max_price):
     log(f"  *** ALARM *** {item_name}  |  {seller}  |  {price:,} gold")
     msg = (
-        "NOWA PAZAR ALARMI!\n\n"
+        "AR MARKET ALARMI!\n\n"
         f"Item  : {item_name}\n"
         f"Satan : {seller}\n"
         f"Fiyat : {price:,} gold\n"
@@ -354,13 +383,15 @@ def main():
 
     # Telegram testi
     log("Telegram test ediliyor...")
-    send_telegram(f"NOWA Alarm baslatildi (v{VERSION}). {len(ALARM_LIST)} alarm aktif.")
+    send_telegram(f"AR Market Alarm baslatildi (v{VERSION}). {len(ALARM_LIST)} alarm aktif.")
+    send_status(f"✅ AR Market Alarm baslatildi (v{VERSION})\n⏱ {datetime.now().strftime('%H:%M')} — {len(ALARM_LIST)} alarm aktif")
     log("")
 
-    scan_no      = 0
-    tcpdump_proc = None
+    scan_no           = 0
+    tcpdump_proc      = None
     last_update_check = time.time()
-    UPDATE_CHECK_INTERVAL = 60  # Her 60 saniyede versiyon kontrol et
+    last_status_send  = time.time()
+    UPDATE_CHECK_INTERVAL = 60
 
     BURST_THRESHOLD = 15_000
     BURST_END_SECS  = 3
@@ -382,7 +413,12 @@ def main():
                 if time.time() - last_update_check >= UPDATE_CHECK_INTERVAL:
                     last_update_check = time.time()
                     log("Guncelleme kontrol ediliyor...")
-                    check_update()  # Yeni versiyon varsa buradan yeniden baslatir
+                    check_update()
+
+                # Durum mesaji (her 15 dakika, sessiz)
+                if time.time() - last_status_send >= STATUS_INTERVAL:
+                    last_status_send = time.time()
+                    send_status(f"✅ AR Market Alarm calisiyor (v{VERSION})\n⏱ {datetime.now().strftime('%H:%M')} — {scan_no} tarama yapildi")
 
                 sz   = get_pcap_size()
                 diff = sz - prev_size
@@ -422,7 +458,7 @@ def main():
                 log("  Server verisi bos.")
             else:
                 recs = parse_market_records(payload)
-                check_alarms(recs, pkts=pkts, link_type=link_type)
+                check_alarms(recs, pkts, link_type)
 
             log("  30sn sonra persomeni tekrar ac.")
             log("")
