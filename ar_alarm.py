@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20260505185117
+Versiyon : 20260505185845
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,7 +16,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20260505185117"
+VERSION          = "20260505185845"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
@@ -79,10 +79,10 @@ ALARM_LIST = [
     {"name": "Fireguard Hammer Reb+3", "max_price": 220000000, "item_ids": ["4b32de0b"]},
     {"name": "Fireguard Hammer Reb+4", "max_price": 220000000, "item_ids": ["4c32de0b"]},
     {"name": "Fireguard Hammer Reb+5", "max_price": 220000000, "item_ids": ["4d32de0b"]},
-    {"name": "Cold Dagger +0", "max_price": 220000000, "item_ids": ["565b1907"]},
-    {"name": "Cold Dagger +1", "max_price": 220000000, "item_ids": ["cb5b1907", "575b1907"]},
-    {"name": "Cold Dagger +2", "max_price": 220000000, "item_ids": ["cc5b1907", "585b1907"]},
-    {"name": "Cold Dagger +3", "max_price": 220000000, "item_ids": ["cd5b1907", "595b1907"]},
+    {"name": "Cold Dagger +0", "max_price": 100000000, "item_ids": ["565b1907"]},
+    {"name": "Cold Dagger +1", "max_price": 100000000, "item_ids": ["cb5b1907", "575b1907"]},
+    {"name": "Cold Dagger +2", "max_price": 100000000, "item_ids": ["cc5b1907", "585b1907"]},
+    {"name": "Cold Dagger +3", "max_price": 100000000, "item_ids": ["cd5b1907", "595b1907"]},
     {"name": "Cold Dagger +4", "max_price": 220000000, "item_ids": ["ce5b1907", "5a5b1907"]},
     {"name": "Cold Dagger +5", "max_price": 220000000, "item_ids": ["cf5b1907", "5b5b1907"]},
     {"name": "Cold Dagger +6", "max_price": 220000000, "item_ids": ["d05b1907", "5c5b1907"]},
