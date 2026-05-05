@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20260505185845
+Versiyon : 20260505190359
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,7 +16,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20260505185845"
+VERSION          = "20260505190359"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
@@ -413,7 +413,7 @@ ALARM_LIST = [
     {"name": "Skull Belt +2", "max_price": 150000000, "item_ids": ["54404a14"]},
     {"name": "Skull Belt +3", "max_price": 220000000, "item_ids": ["55404a14"]},
     {"name": "Belt of STR Old", "max_price": 1000000, "item_ids": ["58ef4b14"]},
-    {"name": "Belt of STR +0", "max_price": 170000000, "item_ids": ["9ec54b14"]},
+    {"name": "Belt of STR +0", "max_price": 20000000, "item_ids": ["9ec54b14"]},
     {"name": "Belt of STR +1", "max_price": 220000000, "item_ids": ["c1c64b14"]},
     {"name": "Belt of STR +2", "max_price": 220000000, "item_ids": ["c2c64b14"]},
     {"name": "Belt of STR +3", "max_price": 220000000, "item_ids": ["c3c64b14"]},
