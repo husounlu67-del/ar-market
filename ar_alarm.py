@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20260505222722
+Versiyon : 20260506093558
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,7 +16,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20260505222722"
+VERSION          = "20260506093558"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
@@ -83,7 +83,7 @@ ALARM_LIST = [
     {"name": "Cold Dagger +1", "max_price": 100000000, "item_ids": ["cb5b1907", "575b1907"]},
     {"name": "Cold Dagger +2", "max_price": 100000000, "item_ids": ["cc5b1907", "585b1907"]},
     {"name": "Cold Dagger +3", "max_price": 100000000, "item_ids": ["cd5b1907", "595b1907"]},
-    {"name": "Cold Dagger +4", "max_price": 220000000, "item_ids": ["ce5b1907", "5a5b1907"]},
+    {"name": "Cold Dagger +4", "max_price": 120000000, "item_ids": ["ce5b1907", "5a5b1907"]},
     {"name": "Cold Dagger +5", "max_price": 220000000, "item_ids": ["cf5b1907", "5b5b1907"]},
     {"name": "Cold Dagger +6", "max_price": 220000000, "item_ids": ["d05b1907", "5c5b1907"]},
     {"name": "Cold Dagger +7", "max_price": 220000000, "item_ids": ["d15b1907", "5d5b1907"]},
@@ -188,6 +188,10 @@ ALARM_LIST = [
     {"name": "Dragon Wing Bow +6", "max_price": 220000000, "item_ids": ["9059170a"]},
     {"name": "Dragon Wing Bow +7", "max_price": 220000000, "item_ids": ["9159170a"]},
     {"name": "Dragon Wing Bow +8", "max_price": 220000000, "item_ids": ["9259170a", "5159170a"]},
+    {"name": "Thunder Animor +1", "max_price": 20000000, "item_ids": ["c319e10b"]},
+    {"name": "Thunder Animor +2", "max_price": 20000000, "item_ids": ["c419e10b"]},
+    {"name": "Thunder Animor +3", "max_price": 20000000, "item_ids": ["c519e10b"]},
+    {"name": "Thunder Animor +4", "max_price": 40000000, "item_ids": ["c619e10b"]},
     {"name": "Thunder Animor +5", "max_price": 50000000, "item_ids": ["c719e10b"]},
     {"name": "Thunder Animor +6", "max_price": 100000000, "item_ids": ["c819e10b"]},
     {"name": "Thunder Animor +7", "max_price": 220000000, "item_ids": ["c919e10b"]},
@@ -228,21 +232,47 @@ ALARM_LIST = [
     {"name": "King Axe +2", "max_price": 15000000, "item_ids": ["80621708"]},
     {"name": "King Axe +3", "max_price": 15000000, "item_ids": ["81621708"]},
     {"name": "King Axe +4", "max_price": 20000000, "item_ids": ["82621708"]},
-    {"name": "King Axe +6", "max_price": 220000000, "item_ids": ["84621708"]},
-    {"name": "King Axe +7", "max_price": 220000000, "item_ids": ["85621708"]},
+    {"name": "King Axe +5", "max_price": 50000000, "item_ids": ["83621708"]},
+    {"name": "King Axe +6", "max_price": 100000000, "item_ids": ["84621708"]},
+    {"name": "King Axe +7", "max_price": 100000000, "item_ids": ["85621708"]},
     {"name": "King Axe +8", "max_price": 220000000, "item_ids": ["86621708"]},
     {"name": "HellFire Bow +0", "max_price": 40000000, "item_ids": ["cf469009"]},
-    {"name": "HellFire Bow +1", "max_price": 220000000, "item_ids": ["df469009"]},
-    {"name": "HellFire Bow +2", "max_price": 220000000, "item_ids": ["e0469009"]},
+    {"name": "HellFire Bow +1", "max_price": 100000000, "item_ids": ["df469009"]},
+    {"name": "HellFire Bow +2", "max_price": 100000000, "item_ids": ["e0469009"]},
     {"name": "HellFire Bow +3", "max_price": 220000000, "item_ids": ["e1469009"]},
-    {"name": "HellFire Bow +4", "max_price": 220000000, "item_ids": ["e2469009"]},
-    {"name": "HellFire Bow +5", "max_price": 220000000, "item_ids": ["e3469009"]},
+    {"name": "HellFire Bow +4", "max_price": 100000000, "item_ids": ["e2469009"]},
+    {"name": "HellFire Bow +5", "max_price": 100000000, "item_ids": ["e3469009"]},
     {"name": "HellFire Bow +6", "max_price": 220000000, "item_ids": ["e4469009"]},
     {"name": "HellFire Bow +7", "max_price": 220000000, "item_ids": ["e5469009"]},
     {"name": "HellFire Bow +8", "max_price": 220000000, "item_ids": ["e6469009"]},
-    {"name": "Venom Hammer +6", "max_price": 220000000, "item_ids": ["24fd560b"]},
+    {"name": "Venom Hammer +1", "max_price": 10000000, "item_ids": ["1ffd560b"]},
+    {"name": "Venom Hammer +2", "max_price": 10000000, "item_ids": ["20fd560b"]},
+    {"name": "Venom Hammer +3", "max_price": 10000000, "item_ids": ["21fd560b"]},
+    {"name": "Venom Hammer +4", "max_price": 15000000, "item_ids": ["22fd560b"]},
+    {"name": "Venom Hammer +5", "max_price": 20000000, "item_ids": ["23fd560b"]},
+    {"name": "Venom Hammer +6", "max_price": 120000000, "item_ids": ["24fd560b"]},
     {"name": "Venom Hammer +7", "max_price": 220000000, "item_ids": ["25fd560b"]},
     {"name": "Venom Hammer +8", "max_price": 220000000, "item_ids": ["26fd560b"]},
+    {"name": "Claw Hammer +0", "max_price": 10000000, "item_ids": ["0dfd560b", "32fd560b"]},
+    {"name": "Claw Hammer +1", "max_price": 10000000, "item_ids": ["33fd560b"]},
+    {"name": "Claw Hammer +2", "max_price": 10000000, "item_ids": ["34fd560b"]},
+    {"name": "Claw Hammer +3", "max_price": 15000000, "item_ids": ["35fd560b"]},
+    {"name": "Claw Hammer +4", "max_price": 20000000, "item_ids": ["36fd560b"]},
+    {"name": "Claw Hammer +5", "max_price": 20000000, "item_ids": ["37fd560b"]},
+    {"name": "Claw Hammer +6", "max_price": 40000000, "item_ids": ["38fd560b"]},
+    {"name": "Claw Hammer +7", "max_price": 150000000, "item_ids": ["39fd560b"]},
+    {"name": "Claw Hammer +8", "max_price": 220000000, "item_ids": ["3afd560b"]},
+    {"name": "Claw Hammer Reb+1", "max_price": 200000000, "item_ids": ["7100570b"]},
+    {"name": "Claw Hammer Reb+2", "max_price": 220000000, "item_ids": ["7200570b"]},
+    {"name": "Claw Hammer Reb+3", "max_price": 220000000, "item_ids": ["7300570b"]},
+    {"name": "Claw Hammer Reb+4", "max_price": 220000000, "item_ids": ["7400570b"]},
+    {"name": "Claw Hammer Reb+5", "max_price": 220000000, "item_ids": ["7500570b"]},
+    {"name": "Nightfang Hammer +1", "max_price": 20000000, "item_ids": ["29fd560b"]},
+    {"name": "Nightfang Hammer +2", "max_price": 20000000, "item_ids": ["2afd560b"]},
+    {"name": "Nightfang Hammer +3", "max_price": 20000000, "item_ids": ["2bfd560b"]},
+    {"name": "Nightfang Hammer +4", "max_price": 40000000, "item_ids": ["2cfd560b"]},
+    {"name": "Nightfang Hammer +5", "max_price": 50000000, "item_ids": ["2dfd560b"]},
+    {"name": "Nightfang Hammer +6", "max_price": 100000000, "item_ids": ["2efd560b"]},
     {"name": "Nightfang Hammer +7", "max_price": 220000000, "item_ids": ["2ffd560b"]},
     {"name": "Nightfang Hammer +8", "max_price": 220000000, "item_ids": ["30fd560b"]},
     {"name": "Lord's Sentinel Shield +0", "max_price": 50000000, "item_ids": ["b6ddac0a"]},
