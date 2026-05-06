@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20260506210521
+Versiyon : 20260506210602
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,7 +16,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20260506210521"
+VERSION          = "20260506210602"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
@@ -46,6 +46,7 @@ ALARM_LIST = [
     {"name": "Iceberg Staff +5", "max_price": 20000000, "item_ids": ["71fb460b"]},
     {"name": "Iceberg Staff +6", "max_price": 40000000, "item_ids": ["72fb460b"]},
     {"name": "Iceberg Staff +7", "max_price": 55000000, "item_ids": ["73fb460b"]},
+    {"name": "Iceberg Staff +8", "max_price": 220000000, "item_ids": ["74fb460b"]},
     {"name": "Iceberg Staff Reb+1", "max_price": 55000000, "item_ids": ["a522470b"]},
     {"name": "Iceberg Staff Reb+2", "max_price": 60000000, "item_ids": ["a622470b"]},
     {"name": "Iceberg Staff Reb+3", "max_price": 100000000, "item_ids": ["a722470b"]},
