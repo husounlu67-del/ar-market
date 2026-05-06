@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20260506211325
+Versiyon : 20260506212048
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,7 +16,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20260506211325"
+VERSION          = "20260506212048"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
@@ -263,7 +263,7 @@ ALARM_LIST = [
     {"name": "Claw Hammer +6", "max_price": 40000000, "item_ids": ["38fd560b"]},
     {"name": "Claw Hammer +7", "max_price": 150000000, "item_ids": ["39fd560b"]},
     {"name": "Claw Hammer +8", "max_price": 50000000, "item_ids": ["3afd560b"]},
-    {"name": "Claw Hammer Reb+1", "max_price": 200000000, "item_ids": ["7100570b"]},
+    {"name": "Claw Hammer Reb+1", "max_price": 50000000, "item_ids": ["7100570b"]},
     {"name": "Claw Hammer Reb+2", "max_price": 220000000, "item_ids": ["7200570b"]},
     {"name": "Claw Hammer Reb+3", "max_price": 220000000, "item_ids": ["7300570b"]},
     {"name": "Claw Hammer Reb+4", "max_price": 220000000, "item_ids": ["7400570b"]},
