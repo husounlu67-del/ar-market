@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20260506212048
+Versiyon : 20260507071236
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,7 +16,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20260506212048"
+VERSION          = "20260507071236"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
@@ -491,7 +491,6 @@ ALARM_LIST = [
     {"name": "Hero Ring +1", "max_price": 220000000, "item_ids": ["5d15ad13"]},
     {"name": "Hero Ring +2", "max_price": 220000000, "item_ids": ["5e15ad13"]},
     {"name": "Hero Ring +3", "max_price": 220000000, "item_ids": ["5f15ad13"]},
-    {"name": "Blue Drake Neck +0", "max_price": 5000000, "item_ids": ["501f1c13"]},
     {"name": "Amulet Of Evil Old", "max_price": 1000000, "item_ids": ["b3851b13"]},
     {"name": "Amulet Of Evil +0", "max_price": 95000000, "item_ids": ["a6981a13"]},
     {"name": "Amulet Of Evil +1", "max_price": 220000000, "item_ids": ["7b991a13"]},
