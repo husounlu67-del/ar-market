@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20260507071236
+Versiyon : 20260507071720
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,7 +16,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20260507071236"
+VERSION          = "20260507071720"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
@@ -46,7 +46,6 @@ ALARM_LIST = [
     {"name": "Iceberg Staff +5", "max_price": 20000000, "item_ids": ["71fb460b"]},
     {"name": "Iceberg Staff +6", "max_price": 40000000, "item_ids": ["72fb460b"]},
     {"name": "Iceberg Staff +7", "max_price": 55000000, "item_ids": ["73fb460b"]},
-    {"name": "Iceberg Staff +8", "max_price": 220000000, "item_ids": ["74fb460b"]},
     {"name": "Iceberg Staff Reb+1", "max_price": 55000000, "item_ids": ["a522470b"]},
     {"name": "Iceberg Staff Reb+2", "max_price": 60000000, "item_ids": ["a622470b"]},
     {"name": "Iceberg Staff Reb+3", "max_price": 100000000, "item_ids": ["a722470b"]},
@@ -262,8 +261,8 @@ ALARM_LIST = [
     {"name": "Claw Hammer +5", "max_price": 20000000, "item_ids": ["37fd560b"]},
     {"name": "Claw Hammer +6", "max_price": 40000000, "item_ids": ["38fd560b"]},
     {"name": "Claw Hammer +7", "max_price": 150000000, "item_ids": ["39fd560b"]},
-    {"name": "Claw Hammer +8", "max_price": 50000000, "item_ids": ["3afd560b"]},
-    {"name": "Claw Hammer Reb+1", "max_price": 50000000, "item_ids": ["7100570b"]},
+    {"name": "Claw Hammer +8", "max_price": 220000000, "item_ids": ["3afd560b"]},
+    {"name": "Claw Hammer Reb+1", "max_price": 200000000, "item_ids": ["7100570b"]},
     {"name": "Claw Hammer Reb+2", "max_price": 220000000, "item_ids": ["7200570b"]},
     {"name": "Claw Hammer Reb+3", "max_price": 220000000, "item_ids": ["7300570b"]},
     {"name": "Claw Hammer Reb+4", "max_price": 220000000, "item_ids": ["7400570b"]},
@@ -418,6 +417,7 @@ ALARM_LIST = [
     {"name": "Master Mage Earring Old", "max_price": 10000000, "item_ids": []},
     {"name": "Master Priest Earring Old", "max_price": 10000000, "item_ids": ["507ad117"]},
     {"name": "Master Priest Earring +0", "max_price": 20000000, "item_ids": []},
+    {"name": "Master Courage Ring Old", "max_price": 1000000, "item_ids": ["6d7dd117"]},
     {"name": "Master Courage Ring +0", "max_price": 15000000, "item_ids": ["3019ad13"]},
     {"name": "Master Courage Ring +3", "max_price": 1000000, "item_ids": []},
     {"name": "Master Hextech Ring Old", "max_price": 2000000, "item_ids": ["5681d117"]},
@@ -429,17 +429,20 @@ ALARM_LIST = [
     {"name": "Master Belt Of Str Old", "max_price": 5000000, "item_ids": ["738dd117"]},
     {"name": "Master Belt Of Dexterity Old", "max_price": 2000000, "item_ids": ["5c91d117"]},
     {"name": "Elarin Ring Old", "max_price": 1000000, "item_ids": ["ab94d117"]},
-    {"name": "Fire Ring Old", "max_price": 1000000, "item_ids": ["6e2b7a14"]},
+    {"name": "Fire Ring Old", "max_price": 500000, "item_ids": ["6e2b7a14"]},
     {"name": "Fire Ring +0", "max_price": 12000000, "item_ids": ["bc49b913"]},
     {"name": "Fire Ring +1", "max_price": 220000000, "item_ids": ["894bb913"]},
     {"name": "Fire Ring +2", "max_price": 220000000, "item_ids": ["8a4bb913"]},
     {"name": "Fire Ring +3", "max_price": 220000000, "item_ids": ["8b4bb913"]},
-    {"name": "Essence Pendant Old", "max_price": 1000000, "item_ids": ["17786814"]},
+    {"name": "Frozen Ring Old", "max_price": 500000, "item_ids": ["3f987e14"]},
+    {"name": "Frozen Ring +0", "max_price": 1000000, "item_ids": ["cd70b913"]},
+    {"name": "Thunder Ring Old", "max_price": 500000, "item_ids": ["10058314"]},
+    {"name": "Essence Pendant Old", "max_price": 500000, "item_ids": ["17786814"]},
     {"name": "Essence Pendant +0", "max_price": 12000000, "item_ids": ["247e1413"]},
     {"name": "Essence Pendant +1", "max_price": 220000000, "item_ids": ["e77e1413"]},
     {"name": "Essence Pendant +2", "max_price": 220000000, "item_ids": ["e87e1413"]},
     {"name": "Essence Pendant +3", "max_price": 220000000, "item_ids": ["e97e1413"]},
-    {"name": "Holy Pendant Old", "max_price": 2000000, "item_ids": ["e8e46c14"]},
+    {"name": "Holy Pendant Old", "max_price": 500000, "item_ids": ["e8e46c14"]},
     {"name": "Holy Pendant +0", "max_price": 15000000, "item_ids": ["257e1413"]},
     {"name": "Holy Pendant +1", "max_price": 220000000, "item_ids": ["f17e1413"]},
     {"name": "Holy Pendant +2", "max_price": 220000000, "item_ids": ["f27e1413"]},
@@ -449,12 +452,12 @@ ALARM_LIST = [
     {"name": "Courage Pendant +1", "max_price": 220000000, "item_ids": ["dd7e1413"]},
     {"name": "Courage Pendant +2", "max_price": 220000000, "item_ids": ["de7e1413"]},
     {"name": "Courage Pendant +3", "max_price": 220000000, "item_ids": ["df7e1413"]},
-    {"name": "Elderwood Belt Old", "max_price": 3000000, "item_ids": ["97de8b14"]},
+    {"name": "Elderwood Belt Old", "max_price": 1000000, "item_ids": ["97de8b14"]},
     {"name": "Elderwood Belt +0", "max_price": 25000000, "item_ids": ["013f4a14"]},
     {"name": "Elderwood Belt +1", "max_price": 220000000, "item_ids": ["3f404a14"]},
     {"name": "Elderwood Belt +2", "max_price": 220000000, "item_ids": ["40404a14"]},
     {"name": "Elderwood Belt +3", "max_price": 220000000, "item_ids": ["41404a14"]},
-    {"name": "Skull Belt Old", "max_price": 1000000, "item_ids": ["684b9014"]},
+    {"name": "Skull Belt Old", "max_price": 500000, "item_ids": ["684b9014"]},
     {"name": "Skull Belt +0", "max_price": 1000000, "item_ids": ["033f4a14"]},
     {"name": "Skull Belt +1", "max_price": 30000000, "item_ids": ["53404a14"]},
     {"name": "Skull Belt +2", "max_price": 150000000, "item_ids": ["54404a14"]},
@@ -464,12 +467,12 @@ ALARM_LIST = [
     {"name": "Belt of STR +1", "max_price": 220000000, "item_ids": ["c1c64b14"]},
     {"name": "Belt of STR +2", "max_price": 220000000, "item_ids": ["c2c64b14"]},
     {"name": "Belt of STR +3", "max_price": 220000000, "item_ids": ["c3c64b14"]},
-    {"name": "Elfen Earring Old", "max_price": 2500000, "item_ids": ["ac278412"]},
+    {"name": "Elfen Earring Old", "max_price": 1000000, "item_ids": ["ac278412"]},
     {"name": "Elfen Earring +0", "max_price": 30000000, "item_ids": ["ba888312"]},
     {"name": "Elfen Earring +1", "max_price": 220000000, "item_ids": ["4b898312"]},
     {"name": "Elfen Earring +2", "max_price": 220000000, "item_ids": ["4c898312"]},
     {"name": "Elfen Earring +3", "max_price": 220000000, "item_ids": ["4d898312"]},
-    {"name": "Berserker Earring Old", "max_price": 2000000, "item_ids": ["f0528212"]},
+    {"name": "Berserker Earring Old", "max_price": 1000000, "item_ids": ["f0528212"]},
     {"name": "Berserker Earring +1", "max_price": 220000000, "item_ids": ["d3028212"]},
     {"name": "Berserker Earring +2", "max_price": 220000000, "item_ids": ["d4028212"]},
     {"name": "Berserker Earring +3", "max_price": 220000000, "item_ids": ["d5028212"]},
@@ -487,24 +490,26 @@ ALARM_LIST = [
     {"name": "Rogue Silver Earring +1", "max_price": 220000000, "item_ids": ["23898312"]},
     {"name": "Rogue Silver Earring +2", "max_price": 220000000, "item_ids": ["24898312"]},
     {"name": "Rogue Silver Earring +3", "max_price": 220000000, "item_ids": ["25898312"]},
+    {"name": "Hero Ring Old", "max_price": 1000000, "item_ids": ["9dbe7514"]},
     {"name": "Hero Ring +0", "max_price": 70000000, "item_ids": ["2f15ad13"]},
     {"name": "Hero Ring +1", "max_price": 220000000, "item_ids": ["5d15ad13"]},
     {"name": "Hero Ring +2", "max_price": 220000000, "item_ids": ["5e15ad13"]},
     {"name": "Hero Ring +3", "max_price": 220000000, "item_ids": ["5f15ad13"]},
+    {"name": "Blue Drake Neck +0", "max_price": 1000000, "item_ids": ["501f1c13"]},
     {"name": "Amulet Of Evil Old", "max_price": 1000000, "item_ids": ["b3851b13"]},
     {"name": "Amulet Of Evil +0", "max_price": 95000000, "item_ids": ["a6981a13"]},
     {"name": "Amulet Of Evil +1", "max_price": 220000000, "item_ids": ["7b991a13"]},
     {"name": "Amulet Of Evil +2", "max_price": 220000000, "item_ids": ["7c991a13"]},
     {"name": "Amulet Of Evil +3", "max_price": 220000000, "item_ids": ["7d991a13"]},
     {"name": "Elder Necklace Old", "max_price": 1000000, "item_ids": ["37031813"]},
-    {"name": "Amulet of Divinity Old", "max_price": 1000000, "item_ids": ["58c21a13"]},
-    {"name": "Red Drake Neck Old", "max_price": 1000000, "item_ids": ["4c2a1813"]},
+    {"name": "Amulet of Divinity Old", "max_price": 300000, "item_ids": ["58c21a13"]},
+    {"name": "Red Drake Neck Old", "max_price": 300000, "item_ids": ["4c2a1813"]},
     {"name": "Str Necklace Old", "max_price": 1000000, "item_ids": ["10701c13"]},
     {"name": "Str Necklace +0", "max_price": 20000000, "item_ids": ["471f1c13"]},
     {"name": "Str Necklace +1", "max_price": 220000000, "item_ids": ["25201c13"]},
     {"name": "Str Necklace +2", "max_price": 220000000, "item_ids": ["26201c13"]},
     {"name": "Str Necklace +3", "max_price": 220000000, "item_ids": ["27201c13"]},
-    {"name": "Secret Power Ring Old", "max_price": 1000000, "item_ids": ["8047b213"]},
+    {"name": "Secret Power Ring Old", "max_price": 500000, "item_ids": ["8047b213"]},
     {"name": "Secret Power Ring +0", "max_price": 30000000, "item_ids": ["15a9b113"]},
     {"name": "Secret Power Ring +1", "max_price": 220000000, "item_ids": ["79a9b113"]},
     {"name": "Secret Power Ring +2", "max_price": 220000000, "item_ids": ["7aa9b113"]},
