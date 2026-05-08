@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20260507071720
+Versiyon : 20260508171634
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,7 +16,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20260507071720"
+VERSION          = "20260508171634"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
@@ -142,11 +142,11 @@ ALARM_LIST = [
     {"name": "HellFire Staff Reb+3", "max_price": 220000000, "item_ids": ["e99b450b"]},
     {"name": "HellFire Staff Reb+4", "max_price": 220000000, "item_ids": ["ea9b450b"]},
     {"name": "HellFire Staff Reb+5", "max_price": 220000000, "item_ids": ["eb9b450b"]},
-    {"name": "Wrath's Spear +0", "max_price": 100000000, "item_ids": ["a7c27e09", "0ac37e09"]},
-    {"name": "Wrath's Spear +1", "max_price": 100000000, "item_ids": ["0bc37e09"]},
-    {"name": "Wrath's Spear +2", "max_price": 100000000, "item_ids": ["0cc37e09"]},
-    {"name": "Wrath's Spear +3", "max_price": 100000000, "item_ids": ["0dc37e09"]},
-    {"name": "Wrath's Spear +4", "max_price": 100000000, "item_ids": ["0ec37e09"]},
+    {"name": "Wrath's Spear +0", "max_price": 30000000, "item_ids": ["a7c27e09", "0ac37e09"]},
+    {"name": "Wrath's Spear +1", "max_price": 30000000, "item_ids": ["0bc37e09"]},
+    {"name": "Wrath's Spear +2", "max_price": 30000000, "item_ids": ["0cc37e09"]},
+    {"name": "Wrath's Spear +3", "max_price": 30000000, "item_ids": ["0dc37e09"]},
+    {"name": "Wrath's Spear +4", "max_price": 30000000, "item_ids": ["0ec37e09"]},
     {"name": "Wrath's Spear +5", "max_price": 100000000, "item_ids": ["0fc37e09"]},
     {"name": "Wrath's Spear +6", "max_price": 220000000, "item_ids": ["10c37e09"]},
     {"name": "Wrath's Spear +7", "max_price": 220000000, "item_ids": ["11c37e09"]},
