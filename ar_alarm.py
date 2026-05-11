@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20260511182712
+Versiyon : 20260511211328
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,7 +16,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20260511182712"
+VERSION          = "20260511211328"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
@@ -242,7 +242,7 @@ ALARM_LIST = [
     {"name": "HellFire Bow +0", "max_price": 40000000, "item_ids": ["cf469009"]},
     {"name": "HellFire Bow +1", "max_price": 100000000, "item_ids": ["df469009"]},
     {"name": "HellFire Bow +2", "max_price": 100000000, "item_ids": ["e0469009"]},
-    {"name": "HellFire Bow +3", "max_price": 220000000, "item_ids": ["e1469009"]},
+    {"name": "HellFire Bow +3", "max_price": 100000000, "item_ids": ["e1469009"]},
     {"name": "HellFire Bow +4", "max_price": 100000000, "item_ids": ["e2469009"]},
     {"name": "HellFire Bow +5", "max_price": 100000000, "item_ids": ["e3469009"]},
     {"name": "HellFire Bow +6", "max_price": 220000000, "item_ids": ["e4469009"]},
