@@ -1038,6 +1038,29 @@ function importData() {
             }
           }
         }
+        // catIds formatını işle (exportData'nın yeni formatı)
+        if (d.catIds) {
+          for (const cat of CAT_DATA) {
+            if (!d.catIds[cat.id]) continue;
+            const allItems = [...cat.items, ...(customItems[cat.id]||[])];
+            for (const item of allItems) {
+              const itemData = d.catIds[cat.id][item.name];
+              if (!itemData) continue;
+              for (const lv of item.levels) {
+                const lvData = itemData[lv.level];
+                if (!lvData || !lvData.ids || lvData.ids.length === 0) continue;
+                for (const id of lvData.ids) {
+                  if (!lv.ids.includes(id)) lv.ids.push(id);
+                  if (lvData.confirmed) {
+                    CONFIRMED_IDS.add(id);
+                    learnedIDs[id] = item.name + ' ' + lv.level;
+                  }
+                }
+                if (lvData.confirmed) lv.confirmed = true;
+              }
+            }
+          }
+        }
         initPrices();
         save(); buildCatTabs(); renderTable();
         const idCnt = d.learnedIDs ? Object.keys(d.learnedIDs).length : 0;
