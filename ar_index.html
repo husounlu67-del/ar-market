@@ -239,9 +239,59 @@ tbody td{padding:0;vertical-align:middle;}
 ::-webkit-scrollbar{width:5px;}
 ::-webkit-scrollbar-track{background:var(--bg);}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+/* ── ŞİFRE EKRANI ── */
+#pw-overlay{position:fixed;inset:0;background:#050810;z-index:99999;display:flex;align-items:center;justify-content:center;}
+#pw-overlay::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,200,255,.02)1px,transparent 1px),linear-gradient(90deg,rgba(0,200,255,.02)1px,transparent 1px);background-size:40px 40px;}
+.pw-box{background:#0d1117;border:1px solid rgba(0,200,255,.25);border-radius:14px;padding:44px 38px;width:340px;position:relative;z-index:1;}
+.pw-logo{text-align:center;margin-bottom:30px;}
+.pw-logo-icon{width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,#00c8ff,#005580);display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto 10px;box-shadow:0 0 20px rgba(0,200,255,.3);}
+.pw-logo-txt{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;letter-spacing:3px;color:#fff;}
+.pw-logo-sub{font-family:'Share Tech Mono',monospace;font-size:10px;color:#00c8ff;letter-spacing:3px;}
+.pw-label{font-family:'Rajdhani',sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#6a8098;margin-bottom:7px;}
+.pw-input-wrap{position:relative;margin-bottom:14px;}
+.pw-input{width:100%;background:rgba(0,0,0,.4);border:1px solid rgba(0,200,255,.2);border-radius:7px;padding:11px 14px;color:#cdd9e5;font-family:'Share Tech Mono',monospace;font-size:15px;outline:none;transition:border-color .2s;box-sizing:border-box;}
+.pw-input:focus{border-color:#00c8ff;}
+.pw-btn{width:100%;padding:12px;background:linear-gradient(135deg,#00c8ff,#0080aa);border:none;border-radius:7px;color:#000;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:opacity .2s;}
+.pw-btn:hover{opacity:.85;}
+.pw-error{color:#ff4455;font-family:'Rajdhani',sans-serif;font-size:13px;text-align:center;margin-top:10px;min-height:18px;}
 </style>
 </head>
 <body>
+<div id="pw-overlay">
+  <div class="pw-box">
+    <div class="pw-logo">
+      <div class="pw-logo-icon">⚔</div>
+      <div class="pw-logo-txt">AR ALARM</div>
+      <div class="pw-logo-sub">GİRİŞ GEREKLİ</div>
+    </div>
+    <div class="pw-label">Şifre</div>
+    <div class="pw-input-wrap">
+      <input class="pw-input" id="pw-input" type="password" placeholder="••••••••"
+        onkeydown="if(event.key==='Enter')checkPw()">
+    </div>
+    <button class="pw-btn" onclick="checkPw()">GİRİŞ YAP</button>
+    <div class="pw-error" id="pw-error"></div>
+  </div>
+</div>
+<script>
+(function(){
+  const K = 'ar_pw_ok';
+  if(sessionStorage.getItem(K)==='1'){
+    document.getElementById('pw-overlay').style.display='none';
+  }
+  window.checkPw = function(){
+    const v = document.getElementById('pw-input').value;
+    if(v === '1234'){
+      sessionStorage.setItem(K,'1');
+      document.getElementById('pw-overlay').style.display='none';
+    } else {
+      document.getElementById('pw-error').textContent='Hatalı şifre!';
+      document.getElementById('pw-input').value='';
+      document.getElementById('pw-input').focus();
+    }
+  };
+})();
+</script>
 
 <!-- HEADER -->
 <header>
@@ -1616,10 +1666,6 @@ GAME_SERVER      = "213.238.175.102"
 # -- Telegram (Alarm botu) --------------------
 TELEGRAM_TOKEN   = "8094835962:AAEdADtpFdeR9MK6f_2SJ3u5flCfR4mCMjI"
 TELEGRAM_CHAT_IDS = ["1598896323", "8610188409"]
-# -- Telegram (Durum botu - sessiz) -----------
-STATUS_TOKEN     = "8779317188:AAGIhv8v6YrRNScdPkyLJTNBaZtezIf3dPg"
-STATUS_CHAT_ID   = "1598896323"
-STATUS_INTERVAL  = 15 * 60  # 15 dakikada bir
 # ---------------------------------------------
 # ---------------------------------------------
 
@@ -1921,25 +1967,6 @@ def send_telegram(text):
         except Exception as e:
             log(f"  Telegram hatasi ({chat_id}): {e}")
 
-def send_status(text):
-    try:
-        url     = f"https://api.telegram.org/bot{STATUS_TOKEN}/sendMessage"
-        payload = _json.dumps({
-            "chat_id": STATUS_CHAT_ID,
-            "text": text,
-            "disable_notification": True
-        }).encode("utf-8")
-        req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
-        ctx = _ssl._create_unverified_context()
-        with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
-            body = resp.read().decode("utf-8")
-            if '"ok":true' in body:
-                log("  Durum mesaji gonderildi.")
-            else:
-                log(f"  Durum botu hatasi: {body[:200]}")
-    except Exception as e:
-        log(f"  Durum botu hatasi: {e}")
-
 def fire_alarm(item_name, seller, price, max_price):
     log(f"  *** ALARM *** {item_name}  |  {seller}  |  {price:,} gold")
     msg = (
@@ -1969,13 +1996,11 @@ def main():
     # Telegram testi
     log("Telegram test ediliyor...")
     send_telegram(f"AR Market Alarm baslatildi (v{VERSION}). {len(ALARM_LIST)} alarm aktif.")
-    send_status(f"✅ AR Market Alarm baslatildi (v{VERSION})\\n⏱ {datetime.now().strftime('%H:%M')} — {len(ALARM_LIST)} alarm aktif")
     log("")
 
     scan_no           = 0
     tcpdump_proc      = None
     last_update_check = time.time()
-    last_status_send  = time.time()
     UPDATE_CHECK_INTERVAL = 60
 
     BURST_THRESHOLD = 15_000
@@ -2000,10 +2025,7 @@ def main():
                     log("Guncelleme kontrol ediliyor...")
                     check_update()
 
-                # Durum mesaji (her 15 dakika, sessiz)
-                if time.time() - last_status_send >= STATUS_INTERVAL:
-                    last_status_send = time.time()
-                    send_status(f"✅ AR Market Alarm calisiyor (v{VERSION})\\n⏱ {datetime.now().strftime('%H:%M')} — {scan_no} tarama yapildi")
+                # Durum mesaji blogu kaldirildi
 
                 sz   = get_pcap_size()
                 diff = sz - prev_size
@@ -2126,7 +2148,7 @@ const GIST_FILE = "ar_alarm.json";
 // Token kullanici tarafindan UI'dan girilir, kodda saklanmaz
 let GIST_TOKEN = localStorage.getItem('ar_gist_token') || '';
 
-let gistSaveTimer = null;
+let gistSaveTimer = 12000;
 
 function setInd(text, color) {
   const ind = document.getElementById('gist-ind');
@@ -2207,7 +2229,7 @@ async function save() {
     } else {
       setInd('☁ Hata!', '#ff4455');
     }
-  }, 300);
+  }, 12000);
 }
 
 function promptToken() {
