@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20260508171634
+Versiyon : 20260511182712
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,7 +16,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20260508171634"
+VERSION          = "20260511182712"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
@@ -30,7 +30,7 @@ TELEGRAM_CHAT_IDS = ["1598896323", "8610188409"]
 # ---------------------------------------------
 
 ALARM_LIST = [
-    {"name": "Hope's Frozen Staff +0", "max_price": 5000000, "item_ids": ["b078450b", "307a450b"]},
+    {"name": "Hope's Frozen Staff +0", "max_price": 5000000, "item_ids": ["b078450b"]},
     {"name": "Hope's Frozen Staff +1", "max_price": 5000000, "item_ids": ["317a450b"]},
     {"name": "Hope's Frozen Staff +2", "max_price": 5000000, "item_ids": ["327a450b"]},
     {"name": "Hope's Frozen Staff +3", "max_price": 5000000, "item_ids": ["337a450b"]},
@@ -51,7 +51,7 @@ ALARM_LIST = [
     {"name": "Iceberg Staff Reb+3", "max_price": 100000000, "item_ids": ["a722470b"]},
     {"name": "Iceberg Staff Reb+4", "max_price": 150000000, "item_ids": ["a822470b"]},
     {"name": "Iceberg Staff Reb+5", "max_price": 222222222, "item_ids": ["a922470b"]},
-    {"name": "Katana Sword +0", "max_price": 75000000, "item_ids": ["2eedb107", "9aedb107"]},
+    {"name": "Katana Sword +0", "max_price": 75000000, "item_ids": ["2eedb107"]},
     {"name": "Katana Sword +1", "max_price": 75000000, "item_ids": ["9bedb107"]},
     {"name": "Katana Sword +2", "max_price": 75000000, "item_ids": ["9cedb107"]},
     {"name": "Katana Sword +3", "max_price": 75000000, "item_ids": ["9dedb107"]},
@@ -65,7 +65,7 @@ ALARM_LIST = [
     {"name": "Katana Sword Reb+3", "max_price": 220000000, "item_ids": ["3514b207"]},
     {"name": "Katana Sword Reb+4", "max_price": 220000000, "item_ids": ["3614b207"]},
     {"name": "Katana Sword Reb+5", "max_price": 220000000, "item_ids": ["3714b207"]},
-    {"name": "Fireguard Hammer +0", "max_price": 220000000, "item_ids": ["b10ade0b", "380bde0b"]},
+    {"name": "Fireguard Hammer +0", "max_price": 220000000, "item_ids": ["b10ade0b"]},
     {"name": "Fireguard Hammer +1", "max_price": 220000000, "item_ids": ["390bde0b"]},
     {"name": "Fireguard Hammer +2", "max_price": 220000000, "item_ids": ["3a0bde0b"]},
     {"name": "Fireguard Hammer +3", "max_price": 220000000, "item_ids": ["3b0bde0b"]},
@@ -129,7 +129,7 @@ ALARM_LIST = [
     {"name": "Hell Strike Reb+3", "max_price": 220000000, "item_ids": ["1741e308"]},
     {"name": "Hell Strike Reb+4", "max_price": 220000000, "item_ids": ["1841e308"]},
     {"name": "Hell Strike Reb+5", "max_price": 220000000, "item_ids": ["1941e308"]},
-    {"name": "HellFire Staff +1", "max_price": 50000000, "item_ids": ["f574450b"]},
+    {"name": "HellFire Staff +1", "max_price": 25000000, "item_ids": ["f574450b"]},
     {"name": "HellFire Staff +2", "max_price": 50000000, "item_ids": ["f674450b"]},
     {"name": "HellFire Staff +3", "max_price": 50000000, "item_ids": ["f774450b"]},
     {"name": "HellFire Staff +4", "max_price": 50000000, "item_ids": ["f874450b"]},
@@ -142,7 +142,7 @@ ALARM_LIST = [
     {"name": "HellFire Staff Reb+3", "max_price": 220000000, "item_ids": ["e99b450b"]},
     {"name": "HellFire Staff Reb+4", "max_price": 220000000, "item_ids": ["ea9b450b"]},
     {"name": "HellFire Staff Reb+5", "max_price": 220000000, "item_ids": ["eb9b450b"]},
-    {"name": "Wrath's Spear +0", "max_price": 30000000, "item_ids": ["a7c27e09", "0ac37e09"]},
+    {"name": "Wrath's Spear +0", "max_price": 30000000, "item_ids": ["a7c27e09"]},
     {"name": "Wrath's Spear +1", "max_price": 30000000, "item_ids": ["0bc37e09"]},
     {"name": "Wrath's Spear +2", "max_price": 30000000, "item_ids": ["0cc37e09"]},
     {"name": "Wrath's Spear +3", "max_price": 30000000, "item_ids": ["0dc37e09"]},
@@ -188,6 +188,7 @@ ALARM_LIST = [
     {"name": "Dragon Wing Bow +6", "max_price": 220000000, "item_ids": ["9059170a"]},
     {"name": "Dragon Wing Bow +7", "max_price": 220000000, "item_ids": ["9159170a"]},
     {"name": "Dragon Wing Bow +8", "max_price": 220000000, "item_ids": ["9259170a", "5159170a"]},
+    {"name": "Hope's Thunder Staff +7", "max_price": 50000000, "item_ids": ["e100470b"]},
     {"name": "Thunder Animor +1", "max_price": 20000000, "item_ids": ["c319e10b"]},
     {"name": "Thunder Animor +2", "max_price": 20000000, "item_ids": ["c419e10b"]},
     {"name": "Thunder Animor +3", "max_price": 20000000, "item_ids": ["c519e10b"]},
@@ -209,7 +210,7 @@ ALARM_LIST = [
     {"name": "Firelance +6", "max_price": 40000000, "item_ids": ["8cbf7e09"]},
     {"name": "Firelance +7", "max_price": 220000000, "item_ids": ["8dbf7e09"]},
     {"name": "Firelance +8", "max_price": 220000000, "item_ids": ["8ebf7e09"]},
-    {"name": "Frozendeath Dagger +0", "max_price": 220000000, "item_ids": ["0b641c07", "7c651c07"]},
+    {"name": "Frozendeath Dagger +0", "max_price": 220000000, "item_ids": ["0b641c07"]},
     {"name": "Frozendeath Dagger +1", "max_price": 220000000, "item_ids": ["7d651c07"]},
     {"name": "Frozendeath Dagger +2", "max_price": 220000000, "item_ids": ["7e651c07"]},
     {"name": "Frozendeath Dagger +3", "max_price": 220000000, "item_ids": ["7f651c07"]},
@@ -218,7 +219,7 @@ ALARM_LIST = [
     {"name": "Frozendeath Dagger +6", "max_price": 220000000, "item_ids": ["82651c07"]},
     {"name": "Frozendeath Dagger +7", "max_price": 220000000, "item_ids": ["83651c07"]},
     {"name": "Frozendeath Dagger +8", "max_price": 220000000, "item_ids": ["84651c07"]},
-    {"name": "Frozen Cross Bow +0", "max_price": 100000000, "item_ids": ["8e54170a", "1a56170a"]},
+    {"name": "Frozen Cross Bow +0", "max_price": 100000000, "item_ids": ["8e54170a"]},
     {"name": "Frozen Cross Bow +1", "max_price": 100000000, "item_ids": ["1b56170a"]},
     {"name": "Frozen Cross Bow +2", "max_price": 100000000, "item_ids": ["1c56170a"]},
     {"name": "Frozen Cross Bow +3", "max_price": 100000000, "item_ids": ["1d56170a"]},
@@ -227,7 +228,9 @@ ALARM_LIST = [
     {"name": "Frozen Cross Bow +6", "max_price": 220000000, "item_ids": ["2056170a"]},
     {"name": "Frozen Cross Bow +7", "max_price": 220000000, "item_ids": ["2156170a"]},
     {"name": "Frozen Cross Bow +8", "max_price": 220000000, "item_ids": ["2256170a"]},
-    {"name": "King Axe +0", "max_price": 15000000, "item_ids": ["73621708"]},
+    {"name": "Gaze of Icedeath +6", "max_price": 25000000, "item_ids": ["fc1a4d0b"]},
+    {"name": "Gaze of Icedeath +7", "max_price": 50000000, "item_ids": ["fd1a4d0b"]},
+    {"name": "King Axe +0", "max_price": 10000000, "item_ids": ["73621708"]},
     {"name": "King Axe +1", "max_price": 15000000, "item_ids": ["7f621708"]},
     {"name": "King Axe +2", "max_price": 15000000, "item_ids": ["80621708"]},
     {"name": "King Axe +3", "max_price": 15000000, "item_ids": ["81621708"]},
@@ -253,7 +256,7 @@ ALARM_LIST = [
     {"name": "Venom Hammer +6", "max_price": 120000000, "item_ids": ["24fd560b"]},
     {"name": "Venom Hammer +7", "max_price": 220000000, "item_ids": ["25fd560b"]},
     {"name": "Venom Hammer +8", "max_price": 220000000, "item_ids": ["26fd560b"]},
-    {"name": "Claw Hammer +0", "max_price": 10000000, "item_ids": ["0dfd560b", "32fd560b"]},
+    {"name": "Claw Hammer +0", "max_price": 10000000, "item_ids": ["0dfd560b"]},
     {"name": "Claw Hammer +1", "max_price": 10000000, "item_ids": ["33fd560b"]},
     {"name": "Claw Hammer +2", "max_price": 10000000, "item_ids": ["34fd560b"]},
     {"name": "Claw Hammer +3", "max_price": 15000000, "item_ids": ["35fd560b"]},
@@ -267,9 +270,9 @@ ALARM_LIST = [
     {"name": "Claw Hammer Reb+3", "max_price": 220000000, "item_ids": ["7300570b"]},
     {"name": "Claw Hammer Reb+4", "max_price": 220000000, "item_ids": ["7400570b"]},
     {"name": "Claw Hammer Reb+5", "max_price": 220000000, "item_ids": ["7500570b"]},
-    {"name": "Nightfang Hammer +1", "max_price": 20000000, "item_ids": ["29fd560b"]},
-    {"name": "Nightfang Hammer +2", "max_price": 20000000, "item_ids": ["2afd560b"]},
-    {"name": "Nightfang Hammer +3", "max_price": 20000000, "item_ids": ["2bfd560b"]},
+    {"name": "Nightfang Hammer +1", "max_price": 10000000, "item_ids": ["29fd560b"]},
+    {"name": "Nightfang Hammer +2", "max_price": 10000000, "item_ids": ["2afd560b"]},
+    {"name": "Nightfang Hammer +3", "max_price": 10000000, "item_ids": ["2bfd560b"]},
     {"name": "Nightfang Hammer +4", "max_price": 40000000, "item_ids": ["2cfd560b"]},
     {"name": "Nightfang Hammer +5", "max_price": 50000000, "item_ids": ["2dfd560b"]},
     {"name": "Nightfang Hammer +6", "max_price": 100000000, "item_ids": ["2efd560b"]},
@@ -290,20 +293,20 @@ ALARM_LIST = [
     {"name": "Lord's Sentinel Shield Reb+4", "max_price": 220000000, "item_ids": ["a605ad0a"]},
     {"name": "Lord's Sentinel Shield Reb+5", "max_price": 220000000, "item_ids": ["a705ad0a"]},
     {"name": "Phantom Shield +0", "max_price": 220000000, "item_ids": ["efe1ac0a"]},
-    {"name": "Phantom Shield +1", "max_price": 220000000, "item_ids": ["71e2ac0a"]},
-    {"name": "Phantom Shield +2", "max_price": 220000000, "item_ids": ["72e2ac0a"]},
-    {"name": "Phantom Shield +3", "max_price": 220000000, "item_ids": ["73e2ac0a"]},
-    {"name": "Phantom Shield +4", "max_price": 220000000, "item_ids": ["74e2ac0a"]},
+    {"name": "Phantom Shield +1", "max_price": 220000000, "item_ids": ["71e2ac0a", "f0e1ac0a"]},
+    {"name": "Phantom Shield +2", "max_price": 220000000, "item_ids": ["72e2ac0a", "f1e1ac0a"]},
+    {"name": "Phantom Shield +3", "max_price": 220000000, "item_ids": ["73e2ac0a", "f2e1ac0a"]},
+    {"name": "Phantom Shield +4", "max_price": 220000000, "item_ids": ["74e2ac0a", "f3e1ac0a"]},
     {"name": "Phantom Shield +5", "max_price": 220000000, "item_ids": ["75e2ac0a", "f4e1ac0a"]},
-    {"name": "Phantom Shield +6", "max_price": 220000000, "item_ids": ["76e2ac0a"]},
-    {"name": "Phantom Shield +7", "max_price": 220000000, "item_ids": ["77e2ac0a"]},
-    {"name": "Phantom Shield +8", "max_price": 220000000, "item_ids": ["78e2ac0a"]},
+    {"name": "Phantom Shield +6", "max_price": 220000000, "item_ids": ["76e2ac0a", "f5e1ac0a"]},
+    {"name": "Phantom Shield +7", "max_price": 220000000, "item_ids": ["77e2ac0a", "f6e1ac0a"]},
+    {"name": "Phantom Shield +8", "max_price": 220000000, "item_ids": ["78e2ac0a", "f7e1ac0a"]},
     {"name": "Phantom Shield Reb+1", "max_price": 220000000, "item_ids": ["ef09ad0a"]},
     {"name": "Phantom Shield Reb+2", "max_price": 220000000, "item_ids": ["f009ad0a"]},
     {"name": "Phantom Shield Reb+3", "max_price": 220000000, "item_ids": ["f109ad0a"]},
     {"name": "Phantom Shield Reb+4", "max_price": 220000000, "item_ids": ["f209ad0a"]},
     {"name": "Phantom Shield Reb+5", "max_price": 220000000, "item_ids": ["f309ad0a"]},
-    {"name": "Frozen Axe +0", "max_price": 220000000, "item_ids": ["0d914d08", "90924d08"]},
+    {"name": "Frozen Axe +0", "max_price": 220000000, "item_ids": ["0d914d08"]},
     {"name": "Frozen Axe +1", "max_price": 220000000, "item_ids": ["91924d08"]},
     {"name": "Frozen Axe +2", "max_price": 220000000, "item_ids": ["92924d08"]},
     {"name": "Frozen Axe +3", "max_price": 220000000, "item_ids": ["93924d08"]},
@@ -411,7 +414,7 @@ ALARM_LIST = [
     {"name": "Bloody Bow Reb+5", "max_price": 70000000, "item_ids": ["fb38080a"]},
     {"name": "Master Warrior Earring Old", "max_price": 1000000, "item_ids": ["956ed117"]},
     {"name": "Master Warrior Earring +0", "max_price": 1000000, "item_ids": []},
-    {"name": "Master Rogue Earring Old", "max_price": 20000000, "item_ids": ["7e72d117"]},
+    {"name": "Master Rogue Earring Old", "max_price": 40000000, "item_ids": ["7e72d117"]},
     {"name": "Master Rogue Earring +0", "max_price": 220000000, "item_ids": ["f8098212"]},
     {"name": "Master Rogue Earring +1", "max_price": 50000000, "item_ids": []},
     {"name": "Master Mage Earring Old", "max_price": 10000000, "item_ids": []},
@@ -426,7 +429,8 @@ ALARM_LIST = [
     {"name": "Master Hextech Ring +2", "max_price": 220000000, "item_ids": ["1cb6ad13"]},
     {"name": "Master Hextech Ring +3", "max_price": 220000000, "item_ids": ["1db6ad13"]},
     {"name": "Master Belt Of Courage Old", "max_price": 50000000, "item_ids": ["8a89d117"]},
-    {"name": "Master Belt Of Str Old", "max_price": 5000000, "item_ids": ["738dd117"]},
+    {"name": "Master Belt Of Str Old", "max_price": 1000000, "item_ids": ["738dd117"]},
+    {"name": "Master Belt Of Str +0", "max_price": 1000000, "item_ids": []},
     {"name": "Master Belt Of Dexterity Old", "max_price": 2000000, "item_ids": ["5c91d117"]},
     {"name": "Elarin Ring Old", "max_price": 1000000, "item_ids": ["ab94d117"]},
     {"name": "Fire Ring Old", "max_price": 500000, "item_ids": ["6e2b7a14"]},
@@ -439,7 +443,7 @@ ALARM_LIST = [
     {"name": "Thunder Ring Old", "max_price": 500000, "item_ids": ["10058314"]},
     {"name": "Essence Pendant Old", "max_price": 500000, "item_ids": ["17786814"]},
     {"name": "Essence Pendant +0", "max_price": 12000000, "item_ids": ["247e1413"]},
-    {"name": "Essence Pendant +1", "max_price": 220000000, "item_ids": ["e77e1413"]},
+    {"name": "Essence Pendant +1", "max_price": 50000000, "item_ids": ["e77e1413"]},
     {"name": "Essence Pendant +2", "max_price": 220000000, "item_ids": ["e87e1413"]},
     {"name": "Essence Pendant +3", "max_price": 220000000, "item_ids": ["e97e1413"]},
     {"name": "Holy Pendant Old", "max_price": 500000, "item_ids": ["e8e46c14"]},
