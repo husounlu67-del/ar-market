@@ -982,28 +982,36 @@ function autoExport() {
 }
 
 function exportData() {
-  // CAT_DATA'daki tüm id'leri (onaylı + tahmin) kaydet
-  const catIds = {};
+  // Tüm ID'leri (onaylı + tahmin) dışa aktar
+  const allLearnedIDs = Object.assign({}, learnedIDs);
+  const savedIDs = {};
   for (const cat of CAT_DATA) {
-    catIds[cat.id] = {};
     const allItems = [...cat.items, ...(customItems[cat.id]||[])];
     for (const item of allItems) {
-      catIds[cat.id][item.name] = {};
       for (const lv of item.levels) {
-        if (lv.ids && lv.ids.length > 0) {
-          catIds[cat.id][item.name][lv.level] = { ids: [...lv.ids], confirmed: !!lv.confirmed };
+        if (!lv.ids || lv.ids.length === 0) continue;
+        const key = cat.id + '|' + item.name + '|' + lv.level;
+        const confirmed = lv.ids.filter(id => CONFIRMED_IDS.has(id));
+        const predicted = lv.ids.filter(id => !CONFIRMED_IDS.has(id));
+        savedIDs[key] = { confirmed, predicted };
+        // Onaylı + tahmin tüm ID'leri learnedIDs formatında ekle
+        for (const id of lv.ids) {
+          if (!allLearnedIDs[id]) {
+            allLearnedIDs[id] = item.name + ' ' + lv.level;
+          }
         }
       }
     }
   }
-  const data = { prices, customItems, selLv, learnedIDs, catIds };
+  const data = { prices, customItems, selLv, learnedIDs: allLearnedIDs, savedIDs };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'ar_alarm.json';
   a.click();
-  const cnt = Object.keys(learnedIDs).length;
-  toast('s', 'Dışa Aktarıldı', `ar_alarm.json — ${cnt} ID + fiyatlar kaydedildi.`);
+  const confirmedCnt = Object.keys(learnedIDs).length;
+  const totalCnt = Object.keys(allLearnedIDs).length;
+  toast('s', 'Dışa Aktarıldı', `ar_alarm.json — ${confirmedCnt} onaylı + ${totalCnt - confirmedCnt} tahmin ID + fiyatlar kaydedildi.`);
 }
 
 function importData() {
