@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20260512084406
+Versiyon : 20260514082134
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,7 +16,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20260512084406"
+VERSION          = "20260514082134"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
@@ -2133,7 +2133,7 @@ ALARM_LIST = [
     {"name": "Piece of +7 Rogue Elder Armor 0", "max_price": 220000000, "item_ids": ["e05f950c"]},
     {"name": "Piece of +7 Warrior Elder Armor 0", "max_price": 220000000, "item_ids": ["f85b950c"]},
     {"name": "Piece of +7 Priest Elder Armor 0", "max_price": 220000000, "item_ids": ["b067950c"]},
-    {"name": "Piece of +7 Mage Elder Armor 0", "max_price": 220000000, "item_ids": ["c863950c"]},
+    {"name": "Piece of +7 Mage Elder Armor 0", "max_price": 120000000, "item_ids": ["c863950c"]},
 ]
 # =============================================
 
