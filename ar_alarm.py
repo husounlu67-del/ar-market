@@ -1,26 +1,46 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20260515215018
+Versiyon : 20260515221442
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
 Gereksinimler (bir kez):
   pkg install python tcpdump
+
+OZELLIKLER:
+  - Normal pazar (eski sistem) alarmı
+  - Ust pazar (port 19001) alarmı
+  - Her ikisi tek scriptte, Termux'ta calısır
 """
 
-import struct, socket, subprocess, time, os, sys, urllib.request, urllib.parse
+import struct, socket, subprocess, time, os, sys, threading, urllib.request, urllib.parse
 import json as _json, ssl as _ssl
 from datetime import datetime
 
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20260515215018"
+VERSION          = "20260515221442"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
+
+# Normal pazar pcap
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
+# Ust pazar pcap
+PCAP_PATH_UST    = "/data/local/tmp/ar_alarm_ust.pcap"
+
 GAME_SERVER      = "213.238.175.102"
+UST_PAZAR_PORT   = 19001
+
+# Ust pazar frame sabitleri
+UST_MSG_TYPE     = 0x000002f8
+UST_BLOCK_SIZE   = 29
+UST_HEADER_SIZE  = 15   # aa55 dahil
+UST_MIN_FRAME    = 1000
+UST_MIN_PRICE    = 100_000
+UST_MAX_PRICE    = 999_999_999_999_999
+UST_BURST_BYTES  = 15_000   # 15KB gelince analiz et
 
 # -- Telegram ---------------------------------
 # -- Telegram (Alarm botu) --------------------
@@ -2366,7 +2386,6 @@ def check_update():
         ctx = _ssl._create_unverified_context()
         with urllib.request.urlopen(GITHUB_RAW_URL, timeout=10, context=ctx) as r:
             new_code = r.read().decode("utf-8")
-        # VERSION satirini bul
         for line in new_code.splitlines():
             if line.startswith("VERSION"):
                 new_ver = line.split("=")[1].strip().strip('"').strip("'")
@@ -2383,7 +2402,7 @@ def check_update():
     except Exception as e:
         log(f"  Guncelleme kontrolu basarisiz: {e}")
 
-# ── TCPDUMP (dogrudan telefon icinde) ────────────────────────────
+# ── ORTAK YARDIMCI ───────────────────────────────────────────────
 def run_shell(cmd):
     try:
         r = subprocess.run(cmd, shell=True, capture_output=True, timeout=20)
@@ -2392,26 +2411,26 @@ def run_shell(cmd):
         log(f"Shell hata: {e}")
         return None
 
-def start_tcpdump():
-    log("Tcpdump baslatiliyor...")
-    # Termux tcpdump yolu
-    tcpdump_bin = "/data/data/com.termux/files/usr/bin/tcpdump"
-    run_shell("su -c 'killall tcpdump 2>/dev/null'")
-    time.sleep(1)
-    run_shell(f"su -c 'rm -f {PCAP_PATH}'")
-    run_shell("su -c 'chmod 755 /data/local/tmp'")
-    run_shell(f"chmod 755 {tcpdump_bin} 2>/dev/null")
-    proc = subprocess.Popen(
-        f"su -c '{tcpdump_bin} -i any -s 0 tcp -w {PCAP_PATH}'",
-        shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-    )
-    time.sleep(2)
-    log(f"  Tcpdump aktif (PID: {proc.pid})")
-    return proc
+def send_telegram(text):
+    for chat_id in TELEGRAM_CHAT_IDS:
+        try:
+            url     = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+            payload = _json.dumps({"chat_id": chat_id, "text": text}).encode("utf-8")
+            req     = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
+            ctx     = _ssl._create_unverified_context()
+            with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
+                body = resp.read().decode("utf-8")
+                if '"ok":true' in body:
+                    log(f"  Telegram gonderildi -> {chat_id}")
+                else:
+                    log(f"  Telegram hatasi ({chat_id}): {body[:200]}")
+        except Exception as e:
+            log(f"  Telegram hatasi ({chat_id}): {e}")
 
-def get_pcap_size():
+# ── PCAP OKUMA (ortak) ───────────────────────────────────────────
+def get_pcap_size(pcap_path):
     try:
-        r = run_shell(f"su -c 'wc -c {PCAP_PATH} 2>/dev/null'")
+        r = run_shell(f"su -c 'wc -c {pcap_path} 2>/dev/null'")
         if r and r.stdout:
             parts = r.stdout.decode("utf-8", errors="ignore").strip().split()
             if parts:
@@ -2420,16 +2439,13 @@ def get_pcap_size():
         pass
     return 0
 
-def pull_pcap():
-    # Termux: pcap zaten telefonda, direkt oku
+def pull_pcap(pcap_path, local_name):
     try:
-        # Okunabilir yap
-        run_shell(f"su -c 'chmod 644 {PCAP_PATH}'")
-        # Termux home'a kopyala
-        local = os.path.join(os.path.expanduser("~"), "ar_alarm_scan.pcap")
-        run_shell(f"su -c 'cp {PCAP_PATH} {local} && chmod 644 {local}'")
+        run_shell(f"su -c 'chmod 644 {pcap_path}'")
+        local = os.path.join(os.path.expanduser("~"), local_name)
+        run_shell(f"su -c 'cp {pcap_path} {local} && chmod 644 {local}'")
         if os.path.exists(local) and os.path.getsize(local) > 24:
-            run_shell(f"su -c 'rm -f {PCAP_PATH}'")
+            run_shell(f"su -c 'rm -f {pcap_path}'")
             return local
     except Exception as e:
         log(f"  Pcap kopyalama hatasi: {e}")
@@ -2457,40 +2473,74 @@ def read_packets(path):
         log(f"Pcap okuma hatasi: {e}")
     return packets, link_type
 
+def get_ip_start(pkt, link_type):
+    """Link tipine gore IP baslangiç offsetini dondur. Gecersizse -1."""
+    try:
+        if link_type == 276:   # LINUX_SLL2
+            if len(pkt) < 20: return -1
+            et = struct.unpack(">H", pkt[0:2])[0]
+            return 20 if et == 0x0800 else -1
+        elif link_type == 113: # LINUX_SLL
+            if len(pkt) < 16: return -1
+            et = struct.unpack(">H", pkt[14:16])[0]
+            return 16 if et == 0x0800 else -1
+        else:                  # Ethernet
+            if len(pkt) < 14: return -1
+            et = struct.unpack(">H", pkt[12:14])[0]
+            return 14 if et == 0x0800 else -1
+    except:
+        return -1
+
+def extract_tcp_payload(pkt, link_type, src_ip=None, dst_port=None):
+    """Paketten TCP payload'u al. src_ip veya dst_port filtresi opsiyonel."""
+    ip_start = get_ip_start(pkt, link_type)
+    if ip_start < 0: return b""
+    ip = pkt[ip_start:]
+    if len(ip) < 20 or (ip[0] >> 4) != 4: return b""
+    if ip[9] != 6: return b""  # TCP degil
+    ihl = (ip[0] & 0x0F) * 4
+    # src_ip filtresi
+    if src_ip:
+        s = f"{ip[12]}.{ip[13]}.{ip[14]}.{ip[15]}"
+        if s != src_ip: return b""
+    tcp = ip[ihl:]
+    if len(tcp) < 20: return b""
+    # dst_port filtresi (kaynak port kontrol -- sunucudan geliyor, kaynak port = oyun sunucusu portu)
+    if dst_port:
+        sport = struct.unpack(">H", tcp[0:2])[0]
+        if sport != dst_port: return b""
+    doff = ((tcp[12] >> 4) & 0xF) * 4
+    payload = tcp[doff:]
+    return payload
+
+# ════════════════════════════════════════════
+#  NORMAL PAZAR (eski sistem)
+# ════════════════════════════════════════════
+
+def start_tcpdump_normal():
+    log("[NORMAL] Tcpdump baslatiliyor...")
+    tcpdump_bin = "/data/data/com.termux/files/usr/bin/tcpdump"
+    run_shell("su -c 'killall tcpdump 2>/dev/null'")
+    time.sleep(1)
+    run_shell(f"su -c 'rm -f {PCAP_PATH}'")
+    run_shell("su -c 'chmod 755 /data/local/tmp'")
+    proc = subprocess.Popen(
+        f"su -c '{tcpdump_bin} -i any -s 0 tcp -w {PCAP_PATH}'",
+        shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+    )
+    time.sleep(2)
+    log(f"[NORMAL] Tcpdump aktif (PID: {proc.pid})")
+    return proc
+
 def extract_server_payloads(packets, link_type=1):
     result = b""
     for pkt in packets:
         try:
-            if len(pkt) < 20: continue
-            if link_type == 276:
-                # LINUX_SLL2: 20 byte header, EtherType at bytes 0-1
-                if len(pkt) < 20: continue
-                et = struct.unpack(">H", pkt[0:2])[0]
-                if et != 0x0800: continue
-                ip_start = 20
-            elif link_type == 113:
-                # LINUX_SLL: 16 byte header, EtherType at bytes 14-15
-                if len(pkt) < 16: continue
-                et = struct.unpack(">H", pkt[14:16])[0]
-                if et != 0x0800: continue
-                ip_start = 16
-            else:
-                # Ethernet: EtherType at bytes 12-13
-                if len(pkt) < 14: continue
-                et = struct.unpack(">H", pkt[12:14])[0]
-                if et != 0x0800: continue
-                ip_start = 14
-            if len(pkt) <= ip_start + 20: continue
-            if (pkt[ip_start] >> 4) != 4: continue
-            ihl      = (pkt[ip_start] & 0x0F) * 4
-            proto    = pkt[ip_start + 9]
-            if proto != 6: continue
-            tcp_start = ip_start + ihl
-            if len(pkt) <= tcp_start + 20: continue
-            data_off  = ((pkt[tcp_start + 12] >> 4) & 0xF) * 4
-            payload   = pkt[tcp_start + data_off:]
-            if len(payload) >= 10: result += payload
-        except: pass
+            payload = extract_tcp_payload(pkt, link_type, src_ip=GAME_SERVER)
+            if len(payload) >= 10:
+                result += payload
+        except:
+            pass
     return result
 
 def parse_market_records(data):
@@ -2532,33 +2582,13 @@ def parse_market_records(data):
             i += 1
     return records
 
-def parse_per_packet(pkts, link_type=1):
-    """Her TCP paketini ayri ayri parse et - dogrulama icin."""
+def parse_per_packet_normal(pkts, link_type=1):
     verified = set()
     for pkt in pkts:
         try:
-            if link_type == 276:
-                if len(pkt) < 22 or struct.unpack(">H", pkt[0:2])[0] != 0x0800: continue
-                ip_start = 20
-            elif link_type == 113:
-                if len(pkt) < 16: continue
-                if struct.unpack(">H", pkt[14:16])[0] != 0x0800: continue
-                ip_start = 16
-            else:
-                if len(pkt) < 14: continue
-                if struct.unpack(">H", pkt[12:14])[0] != 0x0800: continue
-                ip_start = 14
-            if len(pkt) <= ip_start + 20: continue
-            if (pkt[ip_start] >> 4) != 4: continue
-            ihl = (pkt[ip_start] & 0x0F) * 4
-            if pkt[ip_start + 9] != 6: continue
-            ts = ip_start + ihl
-            if len(pkt) <= ts + 20: continue
-            doff = ((pkt[ts + 12] >> 4) & 0xF) * 4
-            data = pkt[ts + doff:]
+            data = extract_tcp_payload(pkt, link_type, src_ip=GAME_SERVER)
             if len(data) < 22: continue
-            n = len(data)
-            i = 0
+            n, i = len(data), 0
             while i < n - 22:
                 if data[i] == 0xaa and i+1 < n and data[i+1] == 0x55:
                     i += 2; continue
@@ -2591,23 +2621,23 @@ def parse_per_packet(pkts, link_type=1):
             pass
     return verified
 
-def check_alarms(records, pkts=None, link_type=1):
+def check_alarms_normal(records, pkts=None, link_type=1):
     if not records:
-        log("  Kayit bulunamadi.")
+        log("[NORMAL]   Kayit bulunamadi.")
         return
-    log(f"  {len(records)} kayit / {len(set(r['item_id'] for r in records))} unique ID analiz ediliyor...")
+    log(f"[NORMAL]   {len(records)} kayit / {len(set(r['item_id'] for r in records))} unique ID analiz ediliyor...")
 
-    # Dogrulama: ayni kayitlari paket paket de parse et
     verified = None
     if pkts:
-        verified = parse_per_packet(pkts, link_type)
-        log(f"  Dogrulama: bireysel paketlerde {len(verified)} kayit bulundu")
+        verified = parse_per_packet_normal(pkts, link_type)
+        log(f"[NORMAL]   Dogrulama: bireysel paketlerde {len(verified)} kayit bulundu")
 
     cheapest = {}
     for r in records:
         iid = r["item_id"]
         if iid not in cheapest or r["price"] < cheapest[iid]["price"]:
             cheapest[iid] = r
+
     all_alarm_ids = set(iid for alarm in ALARM_LIST for iid in alarm["item_ids"])
     fired = 0
     for alarm in ALARM_LIST:
@@ -2615,55 +2645,207 @@ def check_alarms(records, pkts=None, link_type=1):
         if not hits: continue
         best = min(hits, key=lambda x: x["price"])
         if best["price"] <= alarm["max_price"]:
-            # Dogrulama: bu kayit bireysel pakette de goruldumu?
             if verified is not None:
                 key = (best["seller"], best["item_id"], best["price"])
                 if key not in verified:
-                    log(f"  ! SAHTE ALARM ENGELLENDI: {alarm['name']} @ {best['price']:,} gold")
-                    log(f"    Birlesik akisda var, bireysel pakette yok (paket siniri hatasi)")
+                    log(f"[NORMAL]   ! SAHTE ALARM ENGELLENDI: {alarm['name']} @ {best['price']:,} gold")
                     continue
-            fire_alarm(alarm["name"], best["seller"], best["price"], alarm["max_price"])
+            fire_alarm_normal(alarm["name"], best["seller"], best["price"], alarm["max_price"])
             fired += 1
         else:
             pct = best["price"] / alarm["max_price"] * 100
-            log(f"  x {alarm['name']:<35} {best['price']:>14,}  (esik {alarm['max_price']:,}  %{pct:.0f})")
+            log(f"[NORMAL]   x {alarm['name']:<35} {best['price']:>14,}  (esik {alarm['max_price']:,}  %{pct:.0f})")
+
     unknown = {iid: cheapest[iid] for iid in cheapest if iid not in all_alarm_ids}
     if unknown:
-        log(f"  [{len(unknown)} bilinmeyen ID pazarda goruldu]")
-    if fired == 0: log("  -> Esik altinda alarm yok.")
-    else:          log(f"  *** {fired} ALARM ATESLENEDI! ***")
+        log(f"[NORMAL]   [{len(unknown)} bilinmeyen ID pazarda goruldu]")
+    if fired == 0: log("[NORMAL]   -> Esik altinda alarm yok.")
+    else:          log(f"[NORMAL]   *** {fired} ALARM ATESLENEDI! ***")
 
-def send_telegram(text):
-    for chat_id in TELEGRAM_CHAT_IDS:
-        try:
-            url     = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-            payload = _json.dumps({"chat_id": chat_id, "text": text}).encode("utf-8")
-            req     = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
-            ctx     = _ssl._create_unverified_context()
-            with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
-                body = resp.read().decode("utf-8")
-                if '"ok":true' in body:
-                    log(f"  Telegram gonderildi -> {chat_id}")
-                else:
-                    log(f"  Telegram hatasi ({chat_id}): {body[:200]}")
-        except Exception as e:
-            log(f"  Telegram hatasi ({chat_id}): {e}")
-
-def fire_alarm(item_name, seller, price, max_price):
-    log(f"  *** ALARM *** {item_name}  |  {seller}  |  {price:,} gold")
+def fire_alarm_normal(item_name, seller, price, max_price):
+    log(f"[NORMAL] *** ALARM *** {item_name}  |  {seller}  |  {price:,} gold")
     msg = (
-        "AR MARKET ALARMI!\n\n"
+        "AR MARKET - NORMAL PAZAR ALARMI!\n\n"
         f"Item  : {item_name}\n"
         f"Satan : {seller}\n"
         f"Fiyat : {price:,} gold\n"
         f"Esik  : {max_price:,} gold\n\n"
-        "Hemen pazari ac!"
+        "Hemen normal pazari ac!"
     )
     send_telegram(msg)
+
+# ════════════════════════════════════════════
+#  UST PAZAR (port 19001 — yeni sistem)
+# ════════════════════════════════════════════
+
+def start_tcpdump_ust():
+    log("[UST]   Tcpdump baslatiliyor (port 19001)...")
+    tcpdump_bin = "/data/data/com.termux/files/usr/bin/tcpdump"
+    run_shell(f"su -c 'rm -f {PCAP_PATH_UST}'")
+    proc = subprocess.Popen(
+        f"su -c '{tcpdump_bin} -i any -s 0 tcp port {UST_PAZAR_PORT} -w {PCAP_PATH_UST}'",
+        shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+    )
+    time.sleep(2)
+    log(f"[UST]   Tcpdump aktif (PID: {proc.pid})")
+    return proc
+
+def extract_ust_payloads(packets, link_type=1):
+    """Ust pazar: port 19001, sunucudan gelen paketler (kaynak port = 19001)."""
+    result = b""
+    for pkt in packets:
+        try:
+            payload = extract_tcp_payload(pkt, link_type, src_ip=GAME_SERVER, dst_port=UST_PAZAR_PORT)
+            if len(payload) >= 10:
+                result += payload
+        except:
+            pass
+    return result
+
+def parse_ust_market(stream):
+    """
+    Frame: aa55 (2B) | frame_len (2B LE) | msgtype (4B LE) | ... header 15B total | bloklar
+    Blok 29B: listing_id(4) | item_id(4) | qty+unk(9) | price(5 LE) | padding(7)
+    """
+    records, seen, n, i = [], set(), len(stream), 0
+    while i < n - 8:
+        if not (stream[i] == 0xaa and stream[i+1] == 0x55):
+            i += 1; continue
+        if i + 8 > n: break
+        frame_len = struct.unpack_from("<H", stream, i+2)[0]
+        msg_type  = struct.unpack_from("<I", stream, i+4)[0]
+        if msg_type != UST_MSG_TYPE or frame_len < UST_MIN_FRAME:
+            i += 2; continue
+        items_start = i + UST_HEADER_SIZE
+        j = items_start
+        while j + UST_BLOCK_SIZE <= n:
+            # Bir sonraki frame baslarsa dur
+            if stream[j] == 0xaa and j+1 < n and stream[j+1] == 0x55:
+                break
+            item_id = stream[j+4:j+8].hex()
+            price   = int.from_bytes(stream[j+17:j+22], 'little')
+            if item_id != "00000000" and UST_MIN_PRICE <= price <= UST_MAX_PRICE:
+                key = (item_id, price)
+                if key not in seen:
+                    seen.add(key)
+                    records.append({"item_id": item_id, "price": price})
+            j += UST_BLOCK_SIZE
+        i = j if j > items_start else i + 2
+    return records
+
+def check_alarms_ust(records):
+    """Ust pazar alarmlarini kontrol et. Satici adi yok, sadece item_id + price."""
+    if not records:
+        log("[UST]   Kayit bulunamadi.")
+        return
+    log(f"[UST]   {len(records)} kayit / {len(set(r['item_id'] for r in records))} unique ID analiz ediliyor...")
+
+    cheapest = {}
+    for r in records:
+        iid = r["item_id"]
+        if iid not in cheapest or r["price"] < cheapest[iid]["price"]:
+            cheapest[iid] = r
+
+    all_alarm_ids = set(iid for alarm in ALARM_LIST for iid in alarm["item_ids"])
+    fired = 0
+    for alarm in ALARM_LIST:
+        hits = [cheapest[iid] for iid in alarm["item_ids"] if iid in cheapest]
+        if not hits: continue
+        best = min(hits, key=lambda x: x["price"])
+        if best["price"] <= alarm["max_price"]:
+            fire_alarm_ust(alarm["name"], best["price"], alarm["max_price"])
+            fired += 1
+        else:
+            pct = best["price"] / alarm["max_price"] * 100
+            log(f"[UST]   x {alarm['name']:<35} {best['price']:>18,}  (esik {alarm['max_price']:,}  %{pct:.0f})")
+
+    unknown = {iid: cheapest[iid] for iid in cheapest if iid not in all_alarm_ids}
+    if unknown:
+        log(f"[UST]   [{len(unknown)} bilinmeyen ID ust pazarda goruldu]")
+    if fired == 0: log("[UST]   -> Esik altinda alarm yok.")
+    else:          log(f"[UST]   *** {fired} ALARM ATESLENEDI! ***")
+
+def fire_alarm_ust(item_name, price, max_price):
+    log(f"[UST] *** ALARM *** {item_name}  |  {price:,} gold")
+    msg = (
+        "AR MARKET - UST PAZAR ALARMI!\n\n"
+        f"Item  : {item_name}\n"
+        f"Fiyat : {price:,} gold\n"
+        f"Esik  : {max_price:,} gold\n\n"
+        "Hemen ust pazari ac!"
+    )
+    send_telegram(msg)
+
+# ── UST PAZAR ARKA PLAN THREAD ────────────────────────────────────
+_ust_lock = threading.Lock()
+
+def ust_pazar_loop():
+    """
+    Ust pazar dinleme dongusu — arka plan thread'inde calisir.
+    Port 19001'i surekli dinler. 15KB veri gelince analiz yapar.
+    """
+    tcpdump_bin = "/data/data/com.termux/files/usr/bin/tcpdump"
+    log("[UST] Ust pazar dinleme baslatildi (port 19001).")
+
+    while True:
+        try:
+            # Temizle ve baslat
+            run_shell(f"su -c 'rm -f {PCAP_PATH_UST}'")
+            proc = subprocess.Popen(
+                f"su -c '{tcpdump_bin} -i any -s 0 tcp port {UST_PAZAR_PORT} -w {PCAP_PATH_UST}'",
+                shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
+            time.sleep(2)
+
+            # Veri birikimini bekle (15KB)
+            while True:
+                time.sleep(2)
+                sz = get_pcap_size(PCAP_PATH_UST)
+                if sz >= UST_BURST_BYTES:
+                    log(f"[UST] Yeterli veri ({sz:,} byte). Analiz yapiliyor...")
+                    break
+
+            # Tcpdump'i durdur
+            try: proc.kill()
+            except: pass
+            run_shell("su -c 'killall tcpdump 2>/dev/null'")
+            time.sleep(1)
+
+            # Pcap'i cek ve isle
+            local_pcap = pull_pcap(PCAP_PATH_UST, "ar_ust_scan.pcap")
+            if not local_pcap:
+                log("[UST]   Pcap alinamadi.")
+                time.sleep(5)
+                continue
+
+            pkts, link_type = read_packets(local_pcap)
+            payload = extract_ust_payloads(pkts, link_type)
+            log(f"[UST]   {len(pkts)} paket / {len(payload):,} byte veri")
+
+            try: os.remove(local_pcap)
+            except: pass
+
+            if len(payload) == 0:
+                log("[UST]   Veri bos veya sunucu filtresi gecmedi.")
+            else:
+                with _ust_lock:
+                    recs = parse_ust_market(payload)
+                    check_alarms_ust(recs)
+
+            log("[UST] Ust pazar tekrar dinleniyor...")
+
+        except Exception as e:
+            log(f"[UST] Hata: {e}")
+            time.sleep(5)
+
+# ════════════════════════════════════════════
+#  ANA DONGU
+# ════════════════════════════════════════════
 
 def main():
     log("=" * 60)
     log("  AR MARKET - PAZAR ALARM SISTEMI (Termux)")
+    log("  Normal Pazar + Ust Pazar")
     log(f"  Versiyon: {VERSION}")
     log("=" * 60)
     log(f"  Alarm sayisi  : {len(ALARM_LIST)}")
@@ -2677,9 +2859,16 @@ def main():
 
     # Telegram testi
     log("Telegram test ediliyor...")
-    send_telegram(f"AR Market Alarm baslatildi (v{VERSION}). {len(ALARM_LIST)} alarm aktif.")
+    send_telegram(f"AR Market Alarm baslatildi (v{VERSION}).\n{len(ALARM_LIST)} alarm aktif.\nNormal + Ust pazar dinleniyor.")
     log("")
 
+    # Ust pazar thread olarak baslat
+    ust_thread = threading.Thread(target=ust_pazar_loop, daemon=True)
+    ust_thread.start()
+    log("[UST] Arka plan thread baslatildi.")
+    log("")
+
+    # Normal pazar ana dongu
     scan_no           = 0
     tcpdump_proc      = None
     last_update_check = time.time()
@@ -2691,65 +2880,61 @@ def main():
     try:
         while True:
             if tcpdump_proc is None or tcpdump_proc.poll() is not None:
-                tcpdump_proc = start_tcpdump()
-                log("Dinleniyor... Pazar persomenini ac.")
+                tcpdump_proc = start_tcpdump_normal()
+                log("[NORMAL] Dinleniyor... Pazar persomenini ac.")
 
-            prev_size     = get_pcap_size()
+            prev_size     = get_pcap_size(PCAP_PATH)
             in_burst      = False
             burst_end_cnt = 0
 
             while True:
                 time.sleep(1)
 
-                # Versiyon kontrolu (her 60sn)
                 if time.time() - last_update_check >= UPDATE_CHECK_INTERVAL:
                     last_update_check = time.time()
                     log("Guncelleme kontrol ediliyor...")
                     check_update()
 
-                # Durum mesaji blogu kaldirildi
-
-                sz   = get_pcap_size()
+                sz   = get_pcap_size(PCAP_PATH)
                 diff = sz - prev_size
                 prev_size = sz
 
                 if diff >= BURST_THRESHOLD:
                     if not in_burst:
-                        log(f"  >>> Pazar verisi geliyor! ({diff//1024}KB/sn)")
+                        log(f"[NORMAL]   >>> Pazar verisi geliyor! ({diff//1024}KB/sn)")
                         in_burst = True
                     burst_end_cnt = 0
                 elif in_burst:
                     burst_end_cnt += 1
                     if burst_end_cnt >= BURST_END_SECS:
-                        log(f"  Burst bitti, analiz basliyor...")
+                        log(f"[NORMAL]   Burst bitti, analiz basliyor...")
                         break
                 else:
                     pass
 
             scan_no += 1
-            log(f"\nTarama #{scan_no}")
-            local_pcap = pull_pcap()
+            log(f"\n[NORMAL] Tarama #{scan_no}")
+            local_pcap = pull_pcap(PCAP_PATH, "ar_alarm_scan.pcap")
             if not local_pcap:
-                log("  Pcap alinamadi.")
+                log("[NORMAL]   Pcap alinamadi.")
                 in_burst = False
                 burst_end_cnt = 0
                 continue
 
             pkts, link_type = read_packets(local_pcap)
             payload = extract_server_payloads(pkts, link_type)
-            log(f"  {len(pkts)} paket / {len(payload):,} byte server verisi")
+            log(f"[NORMAL]   {len(pkts)} paket / {len(payload):,} byte server verisi")
 
-            # Gecici dosyayi temizle
             try: os.remove(local_pcap)
             except: pass
 
             if len(payload) == 0:
-                log("  Server verisi bos.")
+                log("[NORMAL]   Server verisi bos.")
             else:
                 recs = parse_market_records(payload)
-                check_alarms(recs, pkts, link_type)
+                check_alarms_normal(recs, pkts, link_type)
 
-            log("  30sn sonra persomeni tekrar ac.")
+            log("[NORMAL]   30sn sonra persomeni tekrar ac.")
             log("")
             run_shell("su -c 'killall tcpdump 2>/dev/null'")
             time.sleep(2)
