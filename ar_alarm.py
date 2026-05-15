@@ -49,6 +49,17 @@ header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
 .btn-danger{background:rgba(255,68,85,.08);color:var(--red);border:1px solid rgba(255,68,85,.25);}
 .btn-danger:hover{background:rgba(255,68,85,.18);}
 .tsep{width:1px;height:26px;background:var(--border);margin:0 2px;}
+.ddrop{position:relative;display:inline-flex;}
+.ddrop-menu{display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:999;
+  background:var(--panel);border:1px solid var(--border2);border-radius:8px;
+  min-width:200px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.5);}
+.ddrop:hover .ddrop-menu,.ddrop-menu:hover{display:block;}
+.ddrop-item{display:block;width:100%;padding:10px 16px;text-align:left;
+  font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:600;letter-spacing:1px;
+  cursor:pointer;border:none;background:transparent;white-space:nowrap;}
+.ddrop-item:hover{background:rgba(255,255,255,.06);}
+.ddrop-item.green{color:#00e676;}
+.ddrop-item.purple{color:#a78bfa;}
 .search-wrap{position:relative;margin-left:auto;}
 .search-wrap input{background:var(--panel);border:1px solid var(--border2);border-radius:6px;
   padding:7px 12px 7px 30px;color:var(--text);font-family:'Exo 2',sans-serif;font-size:12px;
@@ -321,8 +332,8 @@ tbody td{padding:0;vertical-align:middle;}
   <div class="tsep"></div>
   <button class="btn btn-sec"    onclick="exportData()">↓ Dışa Aktar</button>
   <button class="btn btn-sec"    onclick="importData()">↑ İçe Aktar</button>
-  <button class="btn btn-primary" onclick="downloadScript()" style="background:linear-gradient(135deg,#00e676,#009944);color:#000;box-shadow:0 0 12px rgba(0,230,118,.25);">⬇ Alarm Script İndir</button>
-  <button class="btn btn-primary" onclick="downloadUstPazarScript()" style="background:linear-gradient(135deg,#7c3aed,#4c1d95);color:#fff;box-shadow:0 0 12px rgba(124,58,237,.25);">⬇ Üst Pazar Alarm İndir</button>
+  <button class="btn btn-primary" onclick="downloadScript()" style="background:linear-gradient(135deg,#00e676,#009944);color:#000;box-shadow:0 0 12px rgba(0,230,118,.25);padding:7px 10px;">⬇ Alarm İndir</button>
+  <button class="btn btn-primary" onclick="downloadUstPazarScript()" style="background:linear-gradient(135deg,#7c3aed,#4c1d95);color:#fff;box-shadow:0 0 12px rgba(124,58,237,.25);padding:7px 10px;">⬇ Üst Pazar İndir</button>
   <button class="btn btn-sec" onclick="downloadMarketScript()">⬇ Pazar Analiz Script</button>
   <div class="tsep"></div>
   <button class="btn btn-danger" onclick="clearPrices()">✕ Fiyatları Sıfırla</button>
