@@ -2238,7 +2238,6 @@ def log(msg):
     ts = datetime.now().strftime('%H:%M:%S')
     print(f"[{ts}] {msg}", flush=True)
 
-# ── SHELL & TCPDUMP ──────────────────────────────────────────────
 def run_shell(cmd):
     try:
         r = subprocess.run(cmd, shell=True, capture_output=True, timeout=20)
@@ -2288,7 +2287,6 @@ def pull_pcap():
         log(f"  Pcap kopyalama hatasi: {e}")
     return None
 
-# ── PCAP PARSE ───────────────────────────────────────────────────
 def read_packets(path):
     packets = []
     link_type = 1
@@ -2329,7 +2327,6 @@ def get_ip_start(pkt, link_type):
         return -1
 
 def extract_payloads(packets, link_type):
-    """Sadece GAME_SERVER:UST_PORT kaynak porttan gelen paketlerin payload'u."""
     result = b""
     for pkt in packets:
         try:
@@ -2338,13 +2335,11 @@ def extract_payloads(packets, link_type):
             ip = pkt[ip_start:]
             if len(ip) < 20 or (ip[0] >> 4) != 4: continue
             if ip[9] != 6: continue
-            # Kaynak IP = oyun sunucusu
             src_ip = f"{ip[12]}.{ip[13]}.{ip[14]}.{ip[15]}"
             if src_ip != GAME_SERVER: continue
             ihl = (ip[0] & 0x0F) * 4
             tcp = ip[ihl:]
             if len(tcp) < 20: continue
-            # Kaynak port = 19001 (sunucudan geliyor)
             sport = struct.unpack(">H", tcp[0:2])[0]
             if sport != UST_PORT: continue
             doff = ((tcp[12] >> 4) & 0xF) * 4
@@ -2356,10 +2351,6 @@ def extract_payloads(packets, link_type):
     return result
 
 def parse_market(stream):
-    """
-    Frame: aa55(2) | frame_len(2 LE) | msgtype(4 LE) | header_rest(7) = 15B toplam
-    Blok 29B: listing_id(4) | item_id(4) | qty+unk(9) | price(5 LE) | pad(7)
-    """
     records, seen, n, i = [], set(), len(stream), 0
     while i < n - 8:
         if not (stream[i] == 0xaa and i + 1 < n and stream[i+1] == 0x55):
@@ -2385,7 +2376,6 @@ def parse_market(stream):
         i = j if j > items_start else i + 2
     return records
 
-# ── ALARM & TELEGRAM ─────────────────────────────────────────────
 def send_telegram(text):
     for chat_id in TELEGRAM_CHAT_IDS:
         try:
@@ -2449,7 +2439,6 @@ def check_alarms(records):
     else:
         log(f"  *** {fired} ALARM ATESLENEDI! ***")
 
-# ── ANA DONGU ────────────────────────────────────────────────────
 def main():
     log("=" * 60)
     log("  AR MARKET - UST PAZAR ALARM SISTEMI (Termux)")
@@ -2470,7 +2459,6 @@ def main():
 
     scan_no      = 0
     tcpdump_proc = None
-
     BURST_END_SECS = 3
 
     try:
@@ -2544,7 +2532,7 @@ def main():
 
 if __name__ == "__main__":
     main()
-`;
+\`;
 
   const blob = new Blob([script], { type: 'text/plain' });
   const a = document.createElement('a');
