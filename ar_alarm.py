@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20260515213553
+Versiyon : 20260515215018
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,7 +16,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20260515213553"
+VERSION          = "20260515215018"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
@@ -2262,11 +2262,11 @@ ALARM_LIST = [
     {"name": "Mage Elder Armor Pauldron +6", "max_price": 50000000, "item_ids": ["a2c1cb21", "aebfcb21"]},
     {"name": "Mage Elder Armor Pauldron +7", "max_price": 220000000, "item_ids": ["a3c1cb21", "afbfcb21"]},
     {"name": "Mage Elder Armor Pauldron +8", "max_price": 220000000, "item_ids": ["a4c1cb21", "b0bfcb21"]},
-    {"name": "Mage Elder Armor Pauldron Reb+1", "max_price": 220000000, "item_ids": ["08174d0b"]},
-    {"name": "Mage Elder Armor Pauldron Reb+2", "max_price": 220000000, "item_ids": ["09174d0b"]},
-    {"name": "Mage Elder Armor Pauldron Reb+3", "max_price": 300000000, "item_ids": ["0a174d0b"]},
-    {"name": "Mage Elder Armor Pauldron Reb+4", "max_price": 1000000000, "item_ids": ["0b174d0b"]},
-    {"name": "Mage Elder Armor Pauldron Reb+5", "max_price": 5000000000, "item_ids": ["0c174d0b"]},
+    {"name": "Mage Elder Armor Pauldron Reb+1", "max_price": 220000000, "item_ids": []},
+    {"name": "Mage Elder Armor Pauldron Reb+2", "max_price": 220000000, "item_ids": []},
+    {"name": "Mage Elder Armor Pauldron Reb+3", "max_price": 300000000, "item_ids": []},
+    {"name": "Mage Elder Armor Pauldron Reb+4", "max_price": 1000000000, "item_ids": []},
+    {"name": "Mage Elder Armor Pauldron Reb+5", "max_price": 5000000000, "item_ids": []},
     {"name": "Mage Elder Armor Pads +5", "max_price": 50000000, "item_ids": ["95c3cb21"]},
     {"name": "Mage Elder Armor Pads +6", "max_price": 50000000, "item_ids": ["96c3cb21"]},
     {"name": "Mage Elder Armor Pads +7", "max_price": 220000000, "item_ids": ["97c3cb21"]},
