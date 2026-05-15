@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20260515221442
+Versiyon : 20260515221856
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -21,7 +21,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20260515221442"
+VERSION          = "20260515221856"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 
@@ -833,7 +833,7 @@ ALARM_LIST = [
     {"name": "IronShade Bow Reb+21", "max_price": 5000000000, "item_ids": ["abbf090a"]},
     {"name": "Bloody Dagger +7", "max_price": 5000000, "item_ids": ["9f679f06", "77679f06"]},
     {"name": "Bloody Dagger +8", "max_price": 220000000, "item_ids": ["a0679f06", "78679f06"]},
-    {"name": "Bloody Dagger +9", "max_price": 5000000000, "item_ids": ["a1679f06", "79679f06"]},
+    {"name": "Bloody Dagger +9", "max_price": 500000000, "item_ids": ["a1679f06", "79679f06"]},
     {"name": "Bloody Dagger +10", "max_price": 5000000000, "item_ids": ["a2679f06", "7a679f06"]},
     {"name": "Bloody Dagger Reb+1", "max_price": 5000000, "item_ids": ["776b9f06"]},
     {"name": "Bloody Dagger Reb+2", "max_price": 20000000, "item_ids": ["786b9f06"]},
