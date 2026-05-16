@@ -1,7 +1,7 @@
 """
 NOWA - UST PAZAR ALARM SISTEMI (Termux / Telefon)
 ==================================================
-Versiyon : 20260516120223
+Versiyon : 20260516120546
 Calistir : python yeni_pazar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,7 +16,7 @@ import struct, subprocess, time, os, sys, urllib.request
 import json as _json, ssl as _ssl
 from datetime import datetime
 
-VERSION           = "20260516120223"
+VERSION           = "20260516120546"
 GITHUB_RAW_URL    = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/yeni_pazar_alarm.py"
 SCRIPT_PATH       = os.path.abspath(__file__)
 PCAP_PATH         = "/data/local/tmp/yeni_pazar_scan.pcap"
@@ -6169,19 +6169,14 @@ def send_telegram(text):
 def fire_alarm(item_name, item_id, price, max_price):
     id_label = ID_MAP.get(item_id, item_id)
     log(f"  *** ALARM *** {item_name} | {price:,} gold")
+    nl = "
+"
     msg = (
-        "NOWA UST PAZAR ALARMI!
-
-"
-        f"Item  : {item_name}
-"
-        f"ID    : {id_label}
-"
-        f"Fiyat : {price:,} gold
-"
-        f"Esik  : {max_price:,} gold
-
-"
+        "NOWA UST PAZAR ALARMI!" + nl + nl +
+        f"Item  : {item_name}" + nl +
+        f"ID    : {id_label}" + nl +
+        f"Fiyat : {price:,} gold" + nl +
+        f"Esik  : {max_price:,} gold" + nl + nl +
         "Hemen ust pazari ac!"
     )
     send_telegram(msg)
@@ -6202,8 +6197,8 @@ def main():
     check_update()
     log("")
     send_telegram(
-        f"NOWA Ust Pazar Alarm baslatildi (v{VERSION}).
-"
+        f"NOWA Ust Pazar Alarm baslatildi (v{VERSION})." + "
+" +
         f"{len(ALARM_LIST)} alarm aktif."
     )
     log("")
