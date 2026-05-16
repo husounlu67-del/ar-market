@@ -223,6 +223,15 @@ def read_packets(path):
 
 
 def extract_payloads(packets, link_type=1):
+    """
+    Tum paket verilerini ham olarak birlestir.
+    Link/IP/TCP header parse etme — AA55+0x2F8 pattern zaten yeterince ozgun.
+    Telefon Termux link_type degiskenligi sorun cikartiyordu.
+    """
+    return b"".join(packets)
+
+
+def extract_payloads_OLD(packets, link_type=1):
     """Tum TCP payload'larini birlestir — IP filtresi YOK, port filtresi tcpdump'ta."""
     result = b""
     for pkt in packets:
