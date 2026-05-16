@@ -1,7 +1,7 @@
 """
 NOWA - UST PAZAR (YENI PAZAR) ALARM SISTEMI (Termux / Telefon)
 ================================================================
-Versiyon : 20260516001802
+Versiyon : 20260516110112
 Calistir : python yeni_pazar_alarm.py
 Durdur   : Ctrl+C
 
@@ -19,7 +19,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20260516001802"
+VERSION          = "20260516110112"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/yeni_pazar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/yeni_pazar_scan.pcap"
@@ -191,6 +191,8 @@ def read_packets(path):
     return packets, link_type
 
 def extract_server_payloads(packets, link_type=1):
+    # NOT: IP filtresi YOK — telefon Termux'ta paket yapisina gore
+    # port filtresi (19001) tcpdump seviyesinde yapiliyor, bu yeterli
     result = b""
     for pkt in packets:
         try:
@@ -207,11 +209,9 @@ def extract_server_payloads(packets, link_type=1):
                 ip_start = 14
             if len(pkt) <= ip_start + 20: continue
             if (pkt[ip_start] >> 4) != 4: continue
-            ihl   = (pkt[ip_start] & 0x0F) * 4
-            proto = pkt[ip_start + 9]
+            ihl      = (pkt[ip_start] & 0x0F) * 4
+            proto    = pkt[ip_start + 9]
             if proto != 6: continue
-            src_ip = ".".join(str(pkt[ip_start+12+i]) for i in range(4))
-            if src_ip != GAME_SERVER: continue
             tcp_start = ip_start + ihl
             if len(pkt) <= tcp_start + 20: continue
             data_off  = ((pkt[tcp_start + 12] >> 4) & 0xF) * 4
@@ -221,28 +221,29 @@ def extract_server_payloads(packets, link_type=1):
     return result
 
 # ── YENİ PAZAR PROTOKOL PARSE (29-byte bloklar) ──────────────────
-def parse_yeni_pazar(data):
+def parse_yeni_pazar(stream):
     """
     Frame: AA55 [2b frame_len LE] [4b msgtype=0x2F8] [9b header] -> items
     blk[0:4]=listing_id  blk[4:8]=item_id  blk[17:22]=price(5B LE)
     frame_len > 1000 filtresi: buyuk frame=pazar verisi, kucuk=heartbeat
+    Kaynak: yeni_pazar_analiz.docx — dogrulanmis protokol
     """
     records, seen = [], set()
-    n, i = len(data), 0
+    n, i = len(stream), 0
     while i < n - 8:
-        if not (data[i] == 0xaa and data[i+1] == 0x55):
+        if not (stream[i] == 0xaa and stream[i+1] == 0x55):
             i += 1; continue
         if i + 8 > n: break
-        frame_len = struct.unpack_from("<H", data, i+2)[0]
-        msg_type  = struct.unpack_from("<I", data, i+4)[0]
+        frame_len = struct.unpack_from("<H", stream, i+2)[0]
+        msg_type  = struct.unpack_from("<I", stream, i+4)[0]
         if msg_type != MSG_TYPE or frame_len <= 1000:
             i += 2; continue
         items_start = i + 15
         j = items_start
         while j + 29 <= n:
-            if data[j] == 0xaa and data[j+1] == 0x55: break
-            item_id = data[j+4:j+8].hex()
-            price   = int.from_bytes(data[j+17:j+22], 'little')
+            if stream[j] == 0xaa and stream[j+1] == 0x55: break
+            item_id = stream[j+4:j+8].hex()
+            price   = int.from_bytes(stream[j+17:j+22], 'little')
             if item_id != "00000000" and 100_000 <= price <= 999_999_999_999_999:
                 key = (item_id, price)
                 if key not in seen:
@@ -341,11 +342,13 @@ def main():
             in_burst      = False
             burst_end_cnt = 0
 
+            # Burst bekleme dongusu
             while True:
                 time.sleep(1)
                 sz   = get_pcap_size()
                 diff = sz - prev_size
                 prev_size = sz
+
                 if diff >= BURST_THRESHOLD:
                     if not in_burst:
                         log(f"  >>> Ust pazar verisi geliyor! ({diff//1024}KB/sn)")
@@ -356,6 +359,8 @@ def main():
                     if burst_end_cnt >= BURST_END_SECS:
                         log("  Burst bitti, analiz basliyor...")
                         break
+                else:
+                    pass  # henuz burst baslamadi, beklemeye devam
 
             scan_no += 1
             log(f"\nTarama #{scan_no}")
