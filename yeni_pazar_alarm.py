@@ -1,22 +1,15 @@
 """
 NOWA - UST PAZAR ALARM SISTEMI (Termux / Telefon)
 ==================================================
-Versiyon : 20260516120546
 Calistir : python yeni_pazar_alarm.py
 Durdur   : Ctrl+C
-
-Gereksinimler (bir kez):
-  pkg install python tcpdump
-
-Bu script HTML tarafindan uretilir.
-Eski pazar scriptiyle (ar_alarm.py) FARKLI Termux sekmesinde calistir.
 """
 
 import struct, subprocess, time, os, sys, urllib.request
 import json as _json, ssl as _ssl
 from datetime import datetime
 
-VERSION           = "20260516120546"
+VERSION           = "20260516121113"
 GITHUB_RAW_URL    = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/yeni_pazar_alarm.py"
 SCRIPT_PATH       = os.path.abspath(__file__)
 PCAP_PATH         = "/data/local/tmp/yeni_pazar_scan.pcap"
@@ -25,6 +18,9 @@ MSG_TYPE          = 0x000002f8
 
 TELEGRAM_TOKEN    = "8094835962:AAEdADtpFdeR9MK6f_2SJ3u5flCfR4mCMjI"
 TELEGRAM_CHAT_IDS = ["1598896323", "8610188409"]
+
+GIST_ID   = "b6cae757f7651b69b99cb25b23bbf683"
+GIST_FILE = "ar_alarm.json"
 
 BEKLEME_SURE = 5
 
@@ -2335,7 +2331,6 @@ ALARM_LIST = [
     {"name": "Gold Rod +29", "max_price": 5000000000, "item_ids": ["81b9670b"]},
     {"name": "Gold Rod +30", "max_price": 5000000000, "item_ids": ["81b9670b"]},
 ]
-
 ID_MAP = {
     "10058314": "Thunder Ring Old",
     "10243217": "Fragment of Thnder LWL 3 +0",
@@ -5953,6 +5948,71 @@ def log(msg):
     print(f"[{ts}] {msg}", flush=True)
 
 
+def load_gist_config():
+    global ALARM_LIST, ID_MAP
+    log("Gist'ten alarm listesi yukleniyor...")
+    try:
+        ctx = _ssl._create_unverified_context()
+        req = urllib.request.Request(
+            f"https://api.github.com/gists/{GIST_ID}",
+            headers={
+                "Accept": "application/vnd.github.v3+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+                "User-Agent": "yeni-pazar-alarm"
+            }
+        )
+        with urllib.request.urlopen(req, timeout=15, context=ctx) as r:
+            gist_raw = _json.loads(r.read().decode("utf-8"))
+
+        content = gist_raw.get("files", {}).get(GIST_FILE, {}).get("content", "")
+        if not content:
+            log("  HATA: Gist dosyasi bos!")
+            return False
+
+        gist_data = _json.loads(content)
+        prices    = gist_data.get("prices", {})
+        saved_ids = gist_data.get("savedIDs", {})
+
+        alarm_lines = []
+        id_map_tmp  = {}
+
+        for key, id_data in saved_ids.items():
+            parts = key.split("|")
+            if len(parts) < 3:
+                continue
+            cat_id, item_name, level_name = parts[0], parts[1], parts[2]
+            all_ids = id_data.get("confirmed", []) + id_data.get("predicted", [])
+            if not all_ids:
+                continue
+            for id_ in all_ids:
+                id_map_tmp[id_] = item_name + " " + level_name
+            try:
+                lv_data   = prices.get(cat_id, {}).get(item_name, {}).get(level_name, {})
+                price_val = lv_data.get("price", "")
+                active    = lv_data.get("active", False)
+            except Exception:
+                price_val, active = "", False
+            if active and price_val:
+                try:
+                    max_price = int(str(price_val).replace(",", "").replace(".", ""))
+                except ValueError:
+                    continue
+                alarm_lines.append({
+                    "name"     : item_name + " " + level_name,
+                    "max_price": max_price,
+                    "item_ids" : all_ids
+                })
+
+        ALARM_LIST.clear()
+        ALARM_LIST.extend(alarm_lines)
+        ID_MAP.update(id_map_tmp)
+        log(f"  {len(ALARM_LIST)} alarm yuklendi, {len(ID_MAP)} ID haritasinda")
+        return True
+    except Exception as e:
+        log(f"  Gist yukleme hatasi: {e}")
+        return False
+
+
 def check_update():
     try:
         ctx = _ssl._create_unverified_context()
@@ -6001,7 +6061,9 @@ def start_tcpdump():
     run_shell("su -c 'chmod 755 /data/local/tmp'")
     proc = subprocess.Popen(
         f"su -c '{tcpdump_bin} -i any -s 0 tcp port {GAME_PORT} -w {PCAP_PATH}'",
-        shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        shell=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
     )
     time.sleep(2)
     return proc
@@ -6023,7 +6085,6 @@ def _pcap_bytes(path):
             hdr = f.read(24)
             if len(hdr) < 24:
                 return result
-            # Magic bytes: little-endian pcap = 0xa1b2c3d4
             magic_int = int.from_bytes(hdr[0:4], "little")
             endian = "<" if magic_int == 0xa1b2c3d4 else ">"
             while True:
@@ -6153,8 +6214,10 @@ def send_telegram(text):
         try:
             url     = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
             payload = _json.dumps({"chat_id": chat_id, "text": text}).encode("utf-8")
-            req     = urllib.request.Request(url, data=payload,
-                          headers={"Content-Type": "application/json"})
+            req     = urllib.request.Request(
+                url, data=payload,
+                headers={"Content-Type": "application/json"}
+            )
             ctx = _ssl._create_unverified_context()
             with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
                 body = resp.read().decode("utf-8")
@@ -6169,44 +6232,50 @@ def send_telegram(text):
 def fire_alarm(item_name, item_id, price, max_price):
     id_label = ID_MAP.get(item_id, item_id)
     log(f"  *** ALARM *** {item_name} | {price:,} gold")
-    nl = "
-"
-    msg = (
-        "NOWA UST PAZAR ALARMI!" + nl + nl +
-        f"Item  : {item_name}" + nl +
-        f"ID    : {id_label}" + nl +
-        f"Fiyat : {price:,} gold" + nl +
-        f"Esik  : {max_price:,} gold" + nl + nl +
+    lines = [
+        "NOWA UST PAZAR ALARMI!",
+        "",
+        "Item  : " + item_name,
+        "ID    : " + id_label,
+        "Fiyat : " + f"{price:,}" + " gold",
+        "Esik  : " + f"{max_price:,}" + " gold",
+        "",
         "Hemen ust pazari ac!"
-    )
-    send_telegram(msg)
+    ]
+    send_telegram("\n".join(lines))
 
 
 def main():
     log("=" * 65)
     log("  NOWA - UST PAZAR ALARM SISTEMI (Termux)")
     log(f"  Versiyon: {VERSION}")
-    log(f"  Alarm sayisi : {len(ALARM_LIST)}")
-    log(f"  ID haritasi  : {len(ID_MAP)} kayit")
     log("=" * 65)
     log("")
-    if not ALARM_LIST:
-        log("HATA: Alarm listesi bos!")
-        return
+
     log("Guncelleme kontrol ediliyor...")
     check_update()
     log("")
-    send_telegram(
-        f"NOWA Ust Pazar Alarm baslatildi (v{VERSION})." + "
-" +
-        f"{len(ALARM_LIST)} alarm aktif."
-    )
+
+    if not load_gist_config() or not ALARM_LIST:
+        log("HATA: Alarm listesi bos!")
+        log("  HTML'de ust pazar itemlerini aktifle -> 'Ust Pazar Alarm Indir'.")
+        return
+
+    send_telegram("\n".join([
+        "NOWA Ust Pazar Alarm baslatildi",
+        f"Versiyon : {VERSION}",
+        f"Alarm    : {len(ALARM_LIST)}",
+        f"ID harita: {len(ID_MAP)}"
+    ]))
     log("")
+
     scan_no = 0
+
     try:
         while True:
             tcpdump_proc = start_tcpdump()
             log("Dinleniyor... Ust pazari ac.")
+
             while True:
                 time.sleep(3)
                 sz = get_pcap_size()
@@ -6216,26 +6285,29 @@ def main():
                 if ust_pazar_acik_mi(raw):
                     log(f"  *** Ust pazar acildi! {BEKLEME_SURE}sn bekleniyor...")
                     break
+
             time.sleep(BEKLEME_SURE)
             stop_tcpdump(tcpdump_proc)
+
             scan_no += 1
             log(f"Tarama #{scan_no}")
             stream = read_pcap_raw()
             log(f"  Ham veri: {len(stream):,} byte")
+
             if len(stream) < 100:
                 log("  Veri cok az, atlaniyor.")
             else:
                 recs = parse_yeni_pazar(stream)
                 log(f"  Parse edilen item: {len(recs)}")
                 check_alarms(recs)
+
             log("  Bitti. Ust pazari tekrar ac — bekleniyor.")
             log("")
+
     except KeyboardInterrupt:
-        log("
-Kullanici durdurdu.")
+        log("\nKullanici durdurdu.")
     except Exception as e:
-        log(f"
-Beklenmeyen hata: {e}")
+        log(f"\nBeklenmeyen hata: {e}")
         import traceback
         traceback.print_exc()
     finally:
