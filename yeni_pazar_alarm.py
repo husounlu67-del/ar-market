@@ -1,15 +1,14 @@
 """
 NOWA - UST PAZAR ALARM SISTEMI (Termux / Telefon)
 ==================================================
-Versiyon : 20260516114854
+Versiyon : 20260516120223
 Calistir : python yeni_pazar_alarm.py
 Durdur   : Ctrl+C
 
 Gereksinimler (bir kez):
   pkg install python tcpdump
 
-Bu script HTML'den otomatik uretilir.
-Alarm listesi ve ID haritasi icine yazilidir — Gist gerekmez.
+Bu script HTML tarafindan uretilir.
 Eski pazar scriptiyle (ar_alarm.py) FARKLI Termux sekmesinde calistir.
 """
 
@@ -17,10 +16,7 @@ import struct, subprocess, time, os, sys, urllib.request
 import json as _json, ssl as _ssl
 from datetime import datetime
 
-# =============================================
-#  AYARLAR
-# =============================================
-VERSION           = "20260516114854"
+VERSION           = "20260516120223"
 GITHUB_RAW_URL    = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/yeni_pazar_alarm.py"
 SCRIPT_PATH       = os.path.abspath(__file__)
 PCAP_PATH         = "/data/local/tmp/yeni_pazar_scan.pcap"
@@ -30,12 +26,8 @@ MSG_TYPE          = 0x000002f8
 TELEGRAM_TOKEN    = "8094835962:AAEdADtpFdeR9MK6f_2SJ3u5flCfR4mCMjI"
 TELEGRAM_CHAT_IDS = ["1598896323", "8610188409"]
 
-# Ust pazar frame goruldukten sonra kac saniye daha bekle
 BEKLEME_SURE = 5
 
-# =============================================
-#  ALARM LISTESI — HTML tarafindan uretilir
-# =============================================
 ALARM_LIST = [
     {"name": "Hope's Frozen Staff +0", "max_price": 5000000, "item_ids": ["b078450b"]},
     {"name": "Hope's Frozen Staff +1", "max_price": 5000000, "item_ids": ["317a450b"]},
@@ -2344,9 +2336,6 @@ ALARM_LIST = [
     {"name": "Gold Rod +30", "max_price": 5000000000, "item_ids": ["81b9670b"]},
 ]
 
-# =============================================
-#  ID HARITASI — HTML tarafindan uretilir
-# =============================================
 ID_MAP = {
     "10058314": "Thunder Ring Old",
     "10243217": "Fragment of Thnder LWL 3 +0",
@@ -5958,15 +5947,12 @@ ID_MAP = {
     "81b9670b": "Gold Rod +30"
 }
 
-# =============================================
-
 
 def log(msg):
     ts = datetime.now().strftime('%H:%M:%S')
     print(f"[{ts}] {msg}", flush=True)
 
 
-# ── VERSIYON KONTROL ─────────────────────────────────────────────
 def check_update():
     try:
         ctx = _ssl._create_unverified_context()
@@ -5984,10 +5970,9 @@ def check_update():
                     log(f"  Versiyon guncel: {VERSION}")
                 return
     except Exception as e:
-        log(f"  Guncelleme kontrolu basarisiz: {e}")
+        log(f"  Guncelleme basarisiz: {e}")
 
 
-# ── TCPDUMP ──────────────────────────────────────────────────────
 def run_shell(cmd):
     try:
         return subprocess.run(cmd, shell=True, capture_output=True, timeout=20)
@@ -6016,9 +6001,7 @@ def start_tcpdump():
     run_shell("su -c 'chmod 755 /data/local/tmp'")
     proc = subprocess.Popen(
         f"su -c '{tcpdump_bin} -i any -s 0 tcp port {GAME_PORT} -w {PCAP_PATH}'",
-        shell=True,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL
+        shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
     )
     time.sleep(2)
     return proc
@@ -6033,43 +6016,66 @@ def stop_tcpdump(proc):
     time.sleep(1)
 
 
-def read_pcap_raw():
-    """Pcap oku — ham paket verilerini birlestir, header parse etme."""
+def _pcap_bytes(path):
     result = b""
-    local  = os.path.join(os.path.expanduser("~"), "yp_scan.pcap")
     try:
-        run_shell(f"su -c 'chmod 644 {PCAP_PATH} && cp {PCAP_PATH} {local} && chmod 644 {local}'")
-        if not os.path.exists(local) or os.path.getsize(local) < 24:
-            return result
-        with open(local, "rb") as f:
-            magic = f.read(4)
-            if len(magic) < 4:
+        with open(path, "rb") as f:
+            hdr = f.read(24)
+            if len(hdr) < 24:
                 return result
-            endian = "<" if magic == b"\xd4\xc3\xb2\xa1" else ">"
-            f.read(20)
+            # Magic bytes: little-endian pcap = 0xa1b2c3d4
+            magic_int = int.from_bytes(hdr[0:4], "little")
+            endian = "<" if magic_int == 0xa1b2c3d4 else ">"
             while True:
-                hdr = f.read(16)
-                if len(hdr) < 16:
+                ph = f.read(16)
+                if len(ph) < 16:
                     break
-                _, _, incl_len, _ = struct.unpack(endian + "IIII", hdr)
+                _, _, incl_len, _ = struct.unpack(endian + "IIII", ph)
                 if incl_len > 65535:
                     break
                 pkt = f.read(incl_len)
                 if len(pkt) == incl_len:
                     result += pkt
+    except Exception:
+        pass
+    return result
+
+
+def pcap_kontrol_oku():
+    local = os.path.join(os.path.expanduser("~"), "yp_kontrol.pcap")
+    try:
+        run_shell(f"su -c 'chmod 644 {PCAP_PATH} && cp {PCAP_PATH} {local} && chmod 644 {local}'")
+        if not os.path.exists(local):
+            return b""
+        return _pcap_bytes(local)
+    except Exception:
+        return b""
+    finally:
+        try:
+            os.remove(local)
+        except Exception:
+            pass
+
+
+def read_pcap_raw():
+    local = os.path.join(os.path.expanduser("~"), "yp_scan.pcap")
+    try:
+        run_shell(f"su -c 'chmod 644 {PCAP_PATH} && cp {PCAP_PATH} {local} && chmod 644 {local}'")
+        if not os.path.exists(local) or os.path.getsize(local) < 24:
+            return b""
+        return _pcap_bytes(local)
     except Exception as e:
         log(f"  Pcap okuma hatasi: {e}")
+        return b""
     finally:
         try:
             os.remove(local)
         except Exception:
             pass
         run_shell(f"su -c 'rm -f {PCAP_PATH}'")
-    return result
 
 
 def ust_pazar_acik_mi(stream):
-    """AA55 + 0x2F8 + frame_len>1000 frame var mi? (ust pazar acik mi?)"""
     n = len(stream)
     i = 0
     while i < n - 8:
@@ -6082,51 +6088,7 @@ def ust_pazar_acik_mi(stream):
     return False
 
 
-def pcap_kontrol_oku():
-    """Tcpdump yazarken pcap'i gecici olarak kopyalayip oku."""
-    raw   = b""
-    local = os.path.join(os.path.expanduser("~"), "yp_kontrol.pcap")
-    try:
-        run_shell(f"su -c 'chmod 644 {PCAP_PATH} && cp {PCAP_PATH} {local} && chmod 644 {local}'")
-        if not os.path.exists(local):
-            return raw
-        with open(local, "rb") as f:
-            magic = f.read(4)
-            if len(magic) < 4:
-                return raw
-            endian = "<" if magic == b"\xd4\xc3\xb2\xa1" else ">"
-            f.read(20)
-            while True:
-                hdr = f.read(16)
-                if len(hdr) < 16:
-                    break
-                _, _, incl_len, _ = struct.unpack(endian + "IIII", hdr)
-                if incl_len > 65535:
-                    break
-                pkt = f.read(incl_len)
-                if len(pkt) == incl_len:
-                    raw += pkt
-    except Exception:
-        pass
-    finally:
-        try:
-            os.remove(local)
-        except Exception:
-            pass
-    return raw
-
-
-# ── YENİ PAZAR PROTOKOL (29-byte bloklar) ────────────────────────
 def parse_yeni_pazar(stream):
-    """
-    Frame: AA55 [2B frame_len LE] [4B msgtype=0x2F8] [9B header] [itemler]
-    Her item: 29 byte
-      blk[0:4]   = listing_id (atla)
-      blk[4:8]   = item_id (LE hex)
-      blk[8:17]  = qty + unknown
-      blk[17:22] = price (5 byte Little Endian)
-      blk[22:29] = padding
-    """
     records, seen = [], set()
     n = len(stream)
     i = 0
@@ -6158,7 +6120,6 @@ def parse_yeni_pazar(stream):
     return records
 
 
-# ── ALARM KONTROL ─────────────────────────────────────────────────
 def check_alarms(records):
     if not records:
         log("  Parse edilen item yok.")
@@ -6209,50 +6170,48 @@ def fire_alarm(item_name, item_id, price, max_price):
     id_label = ID_MAP.get(item_id, item_id)
     log(f"  *** ALARM *** {item_name} | {price:,} gold")
     msg = (
-        "NOWA UST PAZAR ALARMI!\n\n"
-        f"Item  : {item_name}\n"
-        f"ID    : {id_label}\n"
-        f"Fiyat : {price:,} gold\n"
-        f"Esik  : {max_price:,} gold\n\n"
+        "NOWA UST PAZAR ALARMI!
+
+"
+        f"Item  : {item_name}
+"
+        f"ID    : {id_label}
+"
+        f"Fiyat : {price:,} gold
+"
+        f"Esik  : {max_price:,} gold
+
+"
         "Hemen ust pazari ac!"
     )
     send_telegram(msg)
 
 
-# ── MAIN ─────────────────────────────────────────────────────────
 def main():
     log("=" * 65)
     log("  NOWA - UST PAZAR ALARM SISTEMI (Termux)")
     log(f"  Versiyon: {VERSION}")
     log(f"  Alarm sayisi : {len(ALARM_LIST)}")
-    log(f"  ID haritasi : {len(ID_MAP)} kayit")
+    log(f"  ID haritasi  : {len(ID_MAP)} kayit")
     log("=" * 65)
     log("")
-
     if not ALARM_LIST:
         log("HATA: Alarm listesi bos!")
-        log("  HTML'de ust pazar itemlerini aktifle -> 'Ust Pazar Alarm Indir'.")
         return
-
     log("Guncelleme kontrol ediliyor...")
     check_update()
     log("")
-
     send_telegram(
-        f"NOWA Ust Pazar Alarm baslatildi (v{VERSION}).\n"
+        f"NOWA Ust Pazar Alarm baslatildi (v{VERSION}).
+"
         f"{len(ALARM_LIST)} alarm aktif."
     )
     log("")
-
     scan_no = 0
-
     try:
         while True:
-            # 1. Tcpdump baslat
             tcpdump_proc = start_tcpdump()
             log("Dinleniyor... Ust pazari ac.")
-
-            # 2. AA55+0x2F8 frame gorulene kadar bekle
             while True:
                 time.sleep(3)
                 sz = get_pcap_size()
@@ -6262,33 +6221,26 @@ def main():
                 if ust_pazar_acik_mi(raw):
                     log(f"  *** Ust pazar acildi! {BEKLEME_SURE}sn bekleniyor...")
                     break
-
-            # 3. Biraz daha bekle — tum listinglar gelsin
             time.sleep(BEKLEME_SURE)
-
-            # 4. Tcpdump durdur
             stop_tcpdump(tcpdump_proc)
-
-            # 5. Son pcap'i oku ve isle
             scan_no += 1
             log(f"Tarama #{scan_no}")
             stream = read_pcap_raw()
             log(f"  Ham veri: {len(stream):,} byte")
-
             if len(stream) < 100:
                 log("  Veri cok az, atlaniyor.")
             else:
                 recs = parse_yeni_pazar(stream)
                 log(f"  Parse edilen item: {len(recs)}")
                 check_alarms(recs)
-
             log("  Bitti. Ust pazari tekrar ac — bekleniyor.")
             log("")
-
     except KeyboardInterrupt:
-        log("\nKullanici durdurdu.")
+        log("
+Kullanici durdurdu.")
     except Exception as e:
-        log(f"\nBeklenmeyen hata: {e}")
+        log(f"
+Beklenmeyen hata: {e}")
         import traceback
         traceback.print_exc()
     finally:
