@@ -398,39 +398,40 @@ def main():
     )
     log("")
 
-    scan_no      = 0
-    tcpdump_proc = None
+    scan_no = 0
 
     try:
         while True:
-            # Tcpdump baslat
-            if tcpdump_proc is None or tcpdump_proc.poll() is not None:
-                tcpdump_proc = start_tcpdump()
-                log("Dinleniyor... Ust pazari ac.")
+            # ── 1. ADIM: Tcpdump baslat, pcap sifirla ───────────────
+            run_shell("su -c 'killall tcpdump 2>/dev/null'")
+            time.sleep(1)
+            run_shell(f"su -c 'rm -f {PCAP_PATH}'")
+            tcpdump_proc = start_tcpdump()
+            log("Dinleniyor... Ust pazari ac.")
 
-            # Pcap boyutunu izle — PCAP_ESIK kadar veri gelince analiz et
+            # ── 2. ADIM: 15KB gelene kadar bekle ────────────────────
             while True:
                 time.sleep(2)
                 sz = get_pcap_size()
                 if sz >= PCAP_ESIK:
                     log(f"  Yeterli veri ({sz:,} byte). Analiz yapiliyor...")
                     break
+                # Hala bekliyorsa sessiz bekle — log spam yapma
 
-            # Tcpdump durdur
+            # ── 3. ADIM: Tcpdump durdur ──────────────────────────────
             try:
                 tcpdump_proc.kill()
             except Exception:
                 pass
             run_shell("su -c 'killall tcpdump 2>/dev/null'")
             time.sleep(1)
-            tcpdump_proc = None
 
-            # Pcap'i al ve isle
+            # ── 4. ADIM: Pcap'i al, isle, alarm kontrol et ──────────
             scan_no += 1
-            log(f"\nTarama #{scan_no}")
+            log(f"Tarama #{scan_no}")
             local_pcap = pull_pcap()
             if not local_pcap:
-                log("  Pcap alinamadi, devam ediliyor...")
+                log("  Pcap alinamadi, yeniden baslatiliyor...")
                 continue
 
             pkts, link_type = read_packets(local_pcap)
@@ -449,8 +450,9 @@ def main():
                 log(f"  Parse edilen item: {len(recs)}")
                 check_alarms(recs)
 
-            log("  30sn sonra ust pazari tekrar ac.")
+            log("  Bitti. Ust pazari tekrar ac — dinlemeye devam ediliyor.")
             log("")
+            # Hemen 1. adima don — bekleme yok
 
     except KeyboardInterrupt:
         log("\nKullanici durdurdu.")
