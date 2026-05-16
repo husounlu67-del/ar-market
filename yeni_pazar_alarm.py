@@ -6,6 +6,12 @@ Durdur   : Ctrl+C
 
 Gereksinimler (bir kez):
   pkg install python tcpdump
+
+Mantik:
+  - Surekli dinler, ust pazar acilana kadar bekler
+  - AA55 + 0x2F8 frame gorununce "ust pazar acik" anlar
+  - O frame'deki tum itemleri alir, alarm kontrol eder
+  - Tekrar bekler — bir sonraki ust pazar acilisini bekler
 """
 
 import struct, subprocess, time, os, sys, urllib.request
@@ -15,7 +21,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION           = "20260516150000"
+VERSION           = "20260516160000"
 GITHUB_RAW_URL    = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/yeni_pazar_alarm.py"
 SCRIPT_PATH       = os.path.abspath(__file__)
 PCAP_PATH         = "/data/local/tmp/yeni_pazar_scan.pcap"
@@ -28,7 +34,9 @@ TELEGRAM_CHAT_IDS = ["1598896323", "8610188409"]
 GIST_ID   = "b6cae757f7651b69b99cb25b23bbf683"
 GIST_FILE = "ar_alarm.json"
 
-PCAP_ESIK = 15_000   # 15 KB — bu kadar dolunca analiz et
+# Ust pazar frame'i geldikten sonra kac saniye daha bekle
+# (tum listing sayfalari gelebilsin diye)
+BEKLEME_SURE = 5
 
 ALARM_LIST = []
 ID_MAP     = {}
@@ -136,24 +144,12 @@ def run_shell(cmd):
         return None
 
 
-def get_pcap_size():
-    """Pcap dosyasinin boyutunu dogrudan os.path ile al — wc -c'den daha guvenilir."""
-    try:
-        if os.path.exists(PCAP_PATH):
-            return os.path.getsize(PCAP_PATH)
-    except Exception:
-        pass
-    return 0
-
-
 def start_tcpdump():
     tcpdump_bin = "/data/data/com.termux/files/usr/bin/tcpdump"
-    # Onceki tcpdump'i oldur, eski pcap'i sil
     run_shell("su -c 'killall tcpdump 2>/dev/null'")
     time.sleep(1)
     run_shell(f"su -c 'rm -f {PCAP_PATH}'")
     run_shell("su -c 'chmod 755 /data/local/tmp'")
-    # Yeni tcpdump baslat
     proc = subprocess.Popen(
         f"su -c '{tcpdump_bin} -i any -s 0 tcp port {GAME_PORT} -w {PCAP_PATH}'",
         shell=True,
@@ -161,7 +157,6 @@ def start_tcpdump():
         stderr=subprocess.DEVNULL
     )
     time.sleep(2)
-    log(f"  Tcpdump basladi (PID: {proc.pid}). Ust pazari ac.")
     return proc
 
 
@@ -174,27 +169,33 @@ def stop_tcpdump(proc):
     time.sleep(1)
 
 
-def read_pcap_raw():
-    """
-    Pcap'i oku, tum paket verilerini ham olarak birlestir.
-    Link/IP/TCP parse etme — AA55+0x2F8 pattern yeterince ozgun.
-    """
-    result = b""
+def get_pcap_size():
     try:
-        # Once Termux home'a kopyala (root izni olmadan okuyabilmek icin)
-        local = os.path.join(os.path.expanduser("~"), "yp_scan.pcap")
+        # Root ile boyut al — pcap root'a ait oldugu icin
+        r = run_shell(f"su -c 'wc -c {PCAP_PATH} 2>/dev/null'")
+        if r and r.stdout:
+            parts = r.stdout.decode("utf-8", errors="ignore").strip().split()
+            if parts:
+                return int(parts[0])
+    except Exception:
+        pass
+    return 0
+
+
+def read_pcap_raw():
+    """Pcap'i Termux home'a kopyala, ham veriyi oku, temizle."""
+    result = b""
+    local  = os.path.join(os.path.expanduser("~"), "yp_scan.pcap")
+    try:
         run_shell(f"su -c 'chmod 644 {PCAP_PATH} && cp {PCAP_PATH} {local} && chmod 644 {local}'")
         if not os.path.exists(local) or os.path.getsize(local) < 24:
             return result
-
         with open(local, "rb") as f:
-            # Global header: 24 byte
             magic = f.read(4)
             if len(magic) < 4:
                 return result
             endian = "<" if magic == b"\xd4\xc3\xb2\xa1" else ">"
-            f.read(20)  # global header rest
-            # Paketleri oku
+            f.read(20)  # global header kalan
             while True:
                 hdr = f.read(16)
                 if len(hdr) < 16:
@@ -204,19 +205,30 @@ def read_pcap_raw():
                     break
                 pkt = f.read(incl_len)
                 if len(pkt) == incl_len:
-                    result += pkt  # ham paket verisini direkt ekle
-
-        # Gecici dosyayi sil
+                    result += pkt  # ham paket — header parse etme
+    except Exception as e:
+        log(f"  Pcap okuma hatasi: {e}")
+    finally:
         try:
             os.remove(local)
         except Exception:
             pass
-        # Orijinal pcap'i de sil
         run_shell(f"su -c 'rm -f {PCAP_PATH}'")
-
-    except Exception as e:
-        log(f"  Pcap okuma hatasi: {e}")
     return result
+
+
+def ust_pazar_frame_var_mi(stream):
+    """Stream icinde AA55 + 0x2F8 msgtype frame var mi? (ust pazar acik mi?)"""
+    n = len(stream)
+    i = 0
+    while i < n - 8:
+        if stream[i] == 0xaa and stream[i+1] == 0x55:
+            frame_len = struct.unpack_from("<H", stream, i+2)[0]
+            msg_type  = struct.unpack_from("<I", stream, i+4)[0]
+            if msg_type == MSG_TYPE and frame_len > 1000:
+                return True
+        i += 1
+    return False
 
 
 # ── YENİ PAZAR PROTOKOL (29-byte bloklar) ────────────────────────
@@ -229,8 +241,6 @@ def parse_yeni_pazar(stream):
       blk[8:17]  = qty + unknown
       blk[17:22] = price (5 byte Little Endian)
       blk[22:29] = padding
-    frame_len > 1000 → pazar verisi
-    frame_len <= 1000 → heartbeat/kontrol, atla
     """
     records, seen = [], set()
     n = len(stream)
@@ -246,7 +256,6 @@ def parse_yeni_pazar(stream):
         if msg_type != MSG_TYPE or frame_len <= 1000:
             i += 2
             continue
-        # Pazar frame bulundu
         items_start = i + 15
         j = items_start
         while j + 29 <= n:
@@ -269,8 +278,7 @@ def check_alarms(records):
     if not records:
         log("  Parse edilen item yok.")
         return
-    unique = len(set(r["item_id"] for r in records))
-    log(f"  {len(records)} kayit / {unique} unique ID")
+    log(f"  {len(records)} kayit / {len(set(r['item_id'] for r in records))} unique ID")
     cheapest = {}
     for r in records:
         iid = r["item_id"]
@@ -352,22 +360,56 @@ def main():
 
     try:
         while True:
-            # 1. Tcpdump baslat (eski pcap icinde siliniyor)
+            # 1. Tcpdump baslat
             tcpdump_proc = start_tcpdump()
+            log("Dinleniyor... Ust pazari ac.")
 
-            # 2. Pcap 15KB dolana kadar bekle — 2sn'de bir kontrol et
-            log(f"  Bekleniyor... (esik: {PCAP_ESIK:,} byte)")
-            while True:
-                time.sleep(2)
+            # 2. AA55+0x2F8 frame gorulene kadar bekle
+            #    Her 3sn'de pcap'i oku, ust pazar frame'i var mi bak
+            ust_pazar_goruldu = False
+            while not ust_pazar_goruldu:
+                time.sleep(3)
                 sz = get_pcap_size()
-                if sz >= PCAP_ESIK:
-                    log(f"  {sz:,} byte geldi. Analiz basliyor...")
-                    break
+                if sz < 100:
+                    continue  # hic veri yok, bekle
+                # Pcap'i gecici olarak oku (tcpdump hala yazıyor)
+                local = os.path.join(os.path.expanduser("~"), "yp_kontrol.pcap")
+                run_shell(f"su -c 'chmod 644 {PCAP_PATH} && cp {PCAP_PATH} {local} && chmod 644 {local}'")
+                if not os.path.exists(local):
+                    continue
+                try:
+                    raw = b""
+                    with open(local, "rb") as f:
+                        magic = f.read(4)
+                        if len(magic) == 4:
+                            endian = "<" if magic == b"\xd4\xc3\xb2\xa1" else ">"
+                            f.read(20)
+                            while True:
+                                hdr = f.read(16)
+                                if len(hdr) < 16: break
+                                _, _, incl_len, _ = struct.unpack(endian + "IIII", hdr)
+                                if incl_len > 65535: break
+                                pkt = f.read(incl_len)
+                                if len(pkt) == incl_len:
+                                    raw += pkt
+                    if ust_pazar_frame_var_mi(raw):
+                        log(f"  *** Ust pazar acildi! {BEKLEME_SURE}sn bekleniyor (tum veriler gelsin)...")
+                        ust_pazar_goruldu = True
+                except Exception:
+                    pass
+                finally:
+                    try:
+                        os.remove(local)
+                    except Exception:
+                        pass
 
-            # 3. Tcpdump durdur
+            # 3. Biraz daha bekle — tum listing sayfalari gelsin
+            time.sleep(BEKLEME_SURE)
+
+            # 4. Tcpdump durdur
             stop_tcpdump(tcpdump_proc)
 
-            # 4. Pcap'i oku ve isle
+            # 5. Son pcap'i oku ve isle
             scan_no += 1
             log(f"Tarama #{scan_no}")
             stream = read_pcap_raw()
@@ -380,7 +422,7 @@ def main():
                 log(f"  Parse edilen item: {len(recs)}")
                 check_alarms(recs)
 
-            log("  Bitti. Ust pazari tekrar ac.")
+            log("  Bitti. Ust pazari tekrar ac — bekleniyor.")
             log("")
 
     except KeyboardInterrupt:
