@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20260516121110
+Versiyon : 20260517052700
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,7 +16,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20260516121110"
+VERSION          = "20260517052700"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
@@ -1371,14 +1371,14 @@ ALARM_LIST = [
     {"name": "Warrior Titan Pads Reb+21", "max_price": 1000000000, "item_ids": ["a5abd00c"]},
     {"name": "Warrior Titan Boots +6", "max_price": 3000000, "item_ids": ["ce20380c", "d820380c"]},
     {"name": "Warrior Titan Boots +7", "max_price": 10000000, "item_ids": ["d920380c", "cf20380c"]},
-    {"name": "Warrior Titan Boots +8", "max_price": 220000000, "item_ids": ["d020380c", "da20380c"]},
+    {"name": "Warrior Titan Boots +8", "max_price": 120000000, "item_ids": ["d020380c", "da20380c"]},
     {"name": "Warrior Titan Boots +9", "max_price": 1000000000, "item_ids": ["db20380c", "d120380c"]},
     {"name": "Warrior Titan Boots +10", "max_price": 1000000000, "item_ids": ["dc20380c", "d220380c"]},
     {"name": "Warrior Titan Boots Reb+1", "max_price": 10000000, "item_ids": ["49b7d00c"]},
     {"name": "Warrior Titan Boots Reb+2", "max_price": 10000000, "item_ids": ["4ab7d00c"]},
     {"name": "Warrior Titan Boots Reb+3", "max_price": 40000000, "item_ids": ["4bb7d00c"]},
     {"name": "Warrior Titan Boots Reb+4", "max_price": 40000000, "item_ids": ["4cb7d00c"]},
-    {"name": "Warrior Titan Boots Reb+5", "max_price": 220000000, "item_ids": ["4db7d00c"]},
+    {"name": "Warrior Titan Boots Reb+5", "max_price": 120000000, "item_ids": ["4db7d00c"]},
     {"name": "Warrior Titan Boots Reb+6", "max_price": 220000000, "item_ids": ["4eb7d00c"]},
     {"name": "Warrior Titan Boots Reb+7", "max_price": 220000000, "item_ids": ["4fb7d00c"]},
     {"name": "Warrior Titan Boots Reb+8", "max_price": 700000000, "item_ids": ["50b7d00c"]},
