@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20260531134448
+Versiyon : 20260602203837
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,7 +16,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20260531134448"
+VERSION          = "20260602203837"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
@@ -552,7 +552,7 @@ ALARM_LIST = [
     {"name": "Venom Hammer +3", "max_price": 10000000, "item_ids": ["21fd560b"]},
     {"name": "Venom Hammer +4", "max_price": 15000000, "item_ids": ["22fd560b"]},
     {"name": "Venom Hammer +5", "max_price": 20000000, "item_ids": ["23fd560b"]},
-    {"name": "Venom Hammer +6", "max_price": 120000000, "item_ids": ["24fd560b"]},
+    {"name": "Venom Hammer +6", "max_price": 50000000, "item_ids": ["24fd560b"]},
     {"name": "Venom Hammer +7", "max_price": 220000000, "item_ids": ["25fd560b"]},
     {"name": "Venom Hammer +8", "max_price": 220000000, "item_ids": ["26fd560b"]},
     {"name": "Venom Hammer +9", "max_price": 5000000000, "item_ids": ["27fd560b"]},
@@ -838,11 +838,11 @@ ALARM_LIST = [
     {"name": "Bloody Dagger Reb+21", "max_price": 5000000000, "item_ids": ["8b6b9f06"]},
     {"name": "Phantom Sword +5", "max_price": 3000000, "item_ids": ["15dd8807", "3ddd8807"]},
     {"name": "Phantom Sword +6", "max_price": 12000000, "item_ids": ["16dd8807", "3edd8807"]},
-    {"name": "Phantom Sword +7", "max_price": 20000000, "item_ids": ["3fdd8807", "17dd8807"]},
+    {"name": "Phantom Sword +7", "max_price": 50000000, "item_ids": ["3fdd8807", "17dd8807"]},
     {"name": "Phantom Sword +8", "max_price": 220000000, "item_ids": ["18dd8807", "40dd8807"]},
     {"name": "Phantom Sword +9", "max_price": 5000000000, "item_ids": ["41dd8807", "19dd8807"]},
     {"name": "Phantom Sword +10", "max_price": 5000000000, "item_ids": ["42dd8807", "1add8807"]},
-    {"name": "Phantom Sword Reb+1", "max_price": 20000000, "item_ids": ["17e18807"]},
+    {"name": "Phantom Sword Reb+1", "max_price": 50000000, "item_ids": ["17e18807"]},
     {"name": "Phantom Sword Reb+2", "max_price": 60000000, "item_ids": ["18e18807"]},
     {"name": "Phantom Sword Reb+3", "max_price": 80000000, "item_ids": ["19e18807"]},
     {"name": "Phantom Sword Reb+4", "max_price": 220000000, "item_ids": ["1ae18807"]},
