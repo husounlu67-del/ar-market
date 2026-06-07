@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20260604052154
+Versiyon : 20260607083612
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,7 +16,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20260604052154"
+VERSION          = "20260607083612"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
@@ -2246,7 +2246,7 @@ ALARM_LIST = [
     {"name": "Mage Fabric Boots +8", "max_price": 15000000, "item_ids": ["e2a08e0f", "d09e8e0f", "c4a08e0f"]},
     {"name": "Mage Fabric Boots +9", "max_price": 220000000, "item_ids": ["e3a08e0f", "d19e8e0f", "c5a08e0f"]},
     {"name": "Mage Fabric Boots +10", "max_price": 5000000000, "item_ids": ["e4a08e0f", "d29e8e0f", "c6a08e0f"]},
-    {"name": "Mage Fabric Gauntlets +7", "max_price": 1000000, "item_ids": ["db9c8e0f", "f99c8e0f"]},
+    {"name": "Mage Fabric Gauntlets +7", "max_price": 999998, "item_ids": ["db9c8e0f", "f99c8e0f"]},
     {"name": "Mage Fabric Gauntlets +8", "max_price": 15000000, "item_ids": ["dc9c8e0f", "fa9c8e0f"]},
     {"name": "Mage Fabric Gauntlets +9", "max_price": 220000000, "item_ids": ["dd9c8e0f", "fb9c8e0f"]},
     {"name": "Mage Fabric Gauntlets +10", "max_price": 5000000000, "item_ids": ["de9c8e0f", "fc9c8e0f"]},
