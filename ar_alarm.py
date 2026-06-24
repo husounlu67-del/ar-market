@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20260607083612
+Versiyon : 20260624114006
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,7 +16,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20260607083612"
+VERSION          = "20260624114006"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
@@ -928,7 +928,7 @@ ALARM_LIST = [
     {"name": "Giant Phantom Sword Reb+3", "max_price": 80000000, "item_ids": ["59ee8b07"]},
     {"name": "Giant Phantom Sword Reb+4", "max_price": 220000000, "item_ids": ["5aee8b07"]},
     {"name": "Giant Phantom Sword Reb+5", "max_price": 220000000, "item_ids": ["5bee8b07"]},
-    {"name": "Giant Phantom Sword Reb+6", "max_price": 2500000000, "item_ids": ["5cee8b07"]},
+    {"name": "Giant Phantom Sword Reb+6", "max_price": 1200000000, "item_ids": ["5cee8b07"]},
     {"name": "Giant Phantom Sword Reb+7", "max_price": 500000000, "item_ids": ["5dee8b07"]},
     {"name": "Giant Phantom Sword Reb+8", "max_price": 1000000000, "item_ids": ["5eee8b07"]},
     {"name": "Giant Phantom Sword Reb+9", "max_price": 2000000000, "item_ids": ["5fee8b07"]},
