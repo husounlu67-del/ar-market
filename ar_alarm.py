@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20260627074208
+Versiyon : 20260627074636
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,7 +16,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20260627074208"
+VERSION          = "20260627074636"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
@@ -2353,7 +2353,7 @@ ALARM_LIST = [
     {"name": "Gold Rod +28", "max_price": 5000000000, "item_ids": ["81b9670b"]},
     {"name": "Gold Rod +29", "max_price": 5000000000, "item_ids": ["81b9670b"]},
     {"name": "Gold Rod +30", "max_price": 5000000000, "item_ids": ["81b9670b"]},
-    {"name": "Party Monster Stone +1", "max_price": 400000000, "item_ids": ["f8b8e630"]},
+    {"name": "Party Monster Stone +1", "max_price": 10000000, "item_ids": ["f8b8e630"]},
     {"name": "Silver Token +1", "max_price": 100000, "item_ids": ["58a9e630"]},
     {"name": "Gold Token +1", "max_price": 1000000, "item_ids": ["40ade630"]},
     {"name": "Rune Box 1", "max_price": 30000000, "item_ids": ["40ade630"]},
