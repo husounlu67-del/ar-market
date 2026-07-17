@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20260629221956
+Versiyon : 20260717221054
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,7 +16,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20260629221956"
+VERSION          = "20260717221054"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
@@ -1071,7 +1071,7 @@ ALARM_LIST = [
     {"name": "Holy Pendant +3", "max_price": 220000000, "item_ids": ["f37e1413"]},
     {"name": "Courage Pendant Old", "max_price": 1000000, "item_ids": ["460b6414"]},
     {"name": "Courage Pendant +0", "max_price": 10000000, "item_ids": ["237e1413"]},
-    {"name": "Courage Pendant +1", "max_price": 220000000, "item_ids": ["dd7e1413"]},
+    {"name": "Courage Pendant +1", "max_price": 120000000, "item_ids": ["dd7e1413"]},
     {"name": "Courage Pendant +2", "max_price": 220000000, "item_ids": ["de7e1413"]},
     {"name": "Courage Pendant +3", "max_price": 220000000, "item_ids": ["df7e1413"]},
     {"name": "Elderwood Belt Old", "max_price": 1000000, "item_ids": ["97de8b14"]},
