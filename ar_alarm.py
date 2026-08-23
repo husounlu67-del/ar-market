@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20260823134636
+Versiyon : 20260823225617
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,7 +16,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20260823134636"
+VERSION          = "20260823225617"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
@@ -590,7 +590,7 @@ ALARM_LIST = [
     {"name": "Nightfang Hammer +1", "max_price": 10000000, "item_ids": ["29fd560b"]},
     {"name": "Nightfang Hammer +2", "max_price": 10000000, "item_ids": ["2afd560b"]},
     {"name": "Nightfang Hammer +3", "max_price": 10000000, "item_ids": ["2bfd560b"]},
-    {"name": "Nightfang Hammer +4", "max_price": 10000000, "item_ids": ["2cfd560b"]},
+    {"name": "Nightfang Hammer +4", "max_price": 40000000, "item_ids": ["2cfd560b"]},
     {"name": "Nightfang Hammer +5", "max_price": 50000000, "item_ids": ["2dfd560b"]},
     {"name": "Nightfang Hammer +6", "max_price": 100000000, "item_ids": ["2efd560b"]},
     {"name": "Nightfang Hammer +7", "max_price": 120000000, "item_ids": ["2ffd560b"]},
@@ -2392,7 +2392,7 @@ ALARM_LIST = [
     {"name": "Dex Chacater Rune +8", "max_price": 5000000000, "item_ids": ["4655361d"]},
     {"name": "Dex Chacater Rune +9", "max_price": 5000000000, "item_ids": ["4755361d"]},
     {"name": "Dex Chacater Rune +10", "max_price": 5000000000, "item_ids": ["4855361d"]},
-    {"name": "Max Def Character Rune +1", "max_price": 40000000, "item_ids": ["d357361d"]},
+    {"name": "Max Def Character Rune +1", "max_price": 20000000, "item_ids": ["d357361d"]},
     {"name": "Max Def Character Rune +2", "max_price": 100000000, "item_ids": ["d457361d"]},
     {"name": "Max Def Character Rune +3", "max_price": 200000000, "item_ids": ["d557361d"]},
     {"name": "Max Def Character Rune +4", "max_price": 400000000, "item_ids": ["d657361d"]},
