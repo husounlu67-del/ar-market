@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20260823225617
+Versiyon : 20260829105644
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,7 +16,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20260823225617"
+VERSION          = "20260829105644"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
@@ -1060,7 +1060,7 @@ ALARM_LIST = [
     {"name": "Thunder Ring +2", "max_price": 220000000, "item_ids": ["be99b913"]},
     {"name": "Thunder Ring +3", "max_price": 220000000, "item_ids": ["bf99b913"]},
     {"name": "Essence Pendant Old", "max_price": 500000, "item_ids": ["17786814"]},
-    {"name": "Essence Pendant +0", "max_price": 12000000, "item_ids": ["247e1413"]},
+    {"name": "Essence Pendant +0", "max_price": 1200000, "item_ids": ["247e1413"]},
     {"name": "Essence Pendant +1", "max_price": 50000000, "item_ids": ["e77e1413"]},
     {"name": "Essence Pendant +2", "max_price": 220000000, "item_ids": ["e87e1413"]},
     {"name": "Essence Pendant +3", "max_price": 220000000, "item_ids": ["e97e1413"]},
