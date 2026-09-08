@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20260908095159
+Versiyon : 20260908144507
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,7 +16,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20260908095159"
+VERSION          = "20260908144507"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
@@ -2239,7 +2239,7 @@ ALARM_LIST = [
     {"name": "Mage Fabric Helmet +8", "max_price": 15000000, "item_ids": ["00968e0f", "12998e0f"]},
     {"name": "Mage Fabric Helmet +9", "max_price": 220000000, "item_ids": ["01968e0f", "13998e0f"]},
     {"name": "Mage Fabric Helmet +10", "max_price": 5000000000, "item_ids": ["02968e0f", "14998e0f"]},
-    {"name": "Mage Fabric Pauldron +7", "max_price": 899999, "item_ids": ["81d39d0f", "23918e0f", "41918e0f"]},
+    {"name": "Mage Fabric Pauldron +7", "max_price": 1000000, "item_ids": ["81d39d0f", "23918e0f", "41918e0f"]},
     {"name": "Mage Fabric Pauldron +8", "max_price": 15000000, "item_ids": ["82d39d0f", "24918e0f", "42918e0f"]},
     {"name": "Mage Fabric Pauldron +9", "max_price": 220000000, "item_ids": ["43918e0f", "83d39d0f", "25918e0f"]},
     {"name": "Mage Fabric Pauldron +10", "max_price": 5000000000, "item_ids": ["44918e0f", "84d39d0f", "26918e0f"]},
@@ -2412,7 +2412,7 @@ ALARM_LIST = [
     {"name": "Max Hp Character Rune +8", "max_price": 5000000000, "item_ids": ["9e57361d"]},
     {"name": "Max Hp Character Rune +9", "max_price": 5000000000, "item_ids": ["9f57361d"]},
     {"name": "Max Hp Character Rune +10", "max_price": 5000000000, "item_ids": ["a057361d"]},
-    {"name": "Warrior Class Def Character Rune +1", "max_price": 40000000, "item_ids": ["c556361d"]},
+    {"name": "Warrior Class Def Character Rune +1", "max_price": 15000000, "item_ids": ["c556361d"]},
     {"name": "Warrior Class Def Character Rune +2", "max_price": 100000000, "item_ids": ["c656361d"]},
     {"name": "Warrior Class Def Character Rune +3", "max_price": 200000000, "item_ids": ["c756361d"]},
     {"name": "Warrior Class Def Character Rune +4", "max_price": 400000000, "item_ids": ["c856361d"]},
