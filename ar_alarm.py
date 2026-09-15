@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20260908144507
+Versiyon : 20260915053953
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,7 +16,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20260908144507"
+VERSION          = "20260915053953"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
@@ -2402,7 +2402,6 @@ ALARM_LIST = [
     {"name": "Max Def Character Rune +8", "max_price": 5000000000, "item_ids": ["da57361d"]},
     {"name": "Max Def Character Rune +9", "max_price": 5000000000, "item_ids": ["db57361d"]},
     {"name": "Max Def Character Rune +10", "max_price": 5000000000, "item_ids": ["dc57361d"]},
-    {"name": "Max Hp Character Rune +1", "max_price": 10000000, "item_ids": ["9757361d"]},
     {"name": "Max Hp Character Rune +2", "max_price": 20000000, "item_ids": ["9857361d"]},
     {"name": "Max Hp Character Rune +3", "max_price": 50000000, "item_ids": ["9957361d"]},
     {"name": "Max Hp Character Rune +4", "max_price": 200000000, "item_ids": ["9a57361d"]},
@@ -2412,7 +2411,7 @@ ALARM_LIST = [
     {"name": "Max Hp Character Rune +8", "max_price": 5000000000, "item_ids": ["9e57361d"]},
     {"name": "Max Hp Character Rune +9", "max_price": 5000000000, "item_ids": ["9f57361d"]},
     {"name": "Max Hp Character Rune +10", "max_price": 5000000000, "item_ids": ["a057361d"]},
-    {"name": "Warrior Class Def Character Rune +1", "max_price": 15000000, "item_ids": ["c556361d"]},
+    {"name": "Warrior Class Def Character Rune +1", "max_price": 40000000, "item_ids": ["c556361d"]},
     {"name": "Warrior Class Def Character Rune +2", "max_price": 100000000, "item_ids": ["c656361d"]},
     {"name": "Warrior Class Def Character Rune +3", "max_price": 200000000, "item_ids": ["c756361d"]},
     {"name": "Warrior Class Def Character Rune +4", "max_price": 400000000, "item_ids": ["c856361d"]},
