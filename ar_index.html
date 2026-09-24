@@ -461,8 +461,10 @@ function switchCat(catId) {
 }
 
 // ── UTILS ─────────────────────────────────────────────────────────
-function fmt(v) { if (!v && v !== 0) return ''; const n = parseInt(v.toString().replace(/\D/g, '')); return isNaN(n) ? '' : n.toLocaleString('tr-TR'); }
-function raw(v) { return v.toString().replace(/\D/g, ''); }
+// Fiyatlar rakam dizisi olarak tutulur; parseInt kullanilmaz (9 katrilyon ustunde yuvarlama yapar)
+function groupDigits(d) { d = d.replace(/^0+(?=\d)/, ''); return d.replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+function fmt(v) { if (!v && v !== 0) return ''; const d = v.toString().replace(/\D/g, ''); return d ? groupDigits(d) : ''; }
+function raw(v) { return v.toString().replace(/\D/g, '').replace(/^0+(?=\d)/, ''); }
 
 function safeId(s) { return s.replace(/[^a-zA-Z0-9]/g, '_'); }
 
@@ -819,7 +821,7 @@ function selectLv(catId, itemName, idx) {
 
 function onPI(inp) {
   const r = raw(inp.value);
-  inp.value = r ? parseInt(r).toLocaleString('tr-TR') : '';
+  inp.value = r ? groupDigits(r) : '';
   inp.classList.toggle('filled', r !== '');
 }
 
@@ -830,7 +832,7 @@ function saveP(catId, itemName, levelName, val, iid) {
   prices[catId][itemName][levelName] = { price: r, active: r !== '' };
   save();
   renderTable();
-  if (r) toast('s', 'Kaydedildi', `${itemName} ${levelName} → ${parseInt(r).toLocaleString('tr-TR')} gold`);
+  if (r) toast('s', 'Kaydedildi', `${itemName} ${levelName} → ${groupDigits(r)} gold`);
 
   // Otomatik sonraki seviyeye geç
   if (r) {
@@ -1685,6 +1687,13 @@ GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/m
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
 GAME_SERVER      = "213.238.175.102"
+GAME_PORT        = 19001
+MARKET_OPCODE    = 0x01C2   # Pazar listesi mesaji (AA 55 | uzunluk | C2 01 ... | 55 AA)
+KANIT_DIR        = os.path.join(os.path.expanduser("~"), "ar_alarm_kanit")
+KANIT_MAX        = 40       # en fazla bu kadar kanit dosyasi tutulur
+TEKRAR_FILE      = os.path.join(os.path.expanduser("~"), "ar_alarm_tekrar.json")
+TEKRAR_MAX       = 10       # ayni ilan (satici+item+fiyat) en fazla bu kadar bildirilir
+TEKRAR_SURE      = 24 * 3600  # sayac ilk alarmdan bu kadar saniye sonra sifirlanir
 
 # -- Telegram ---------------------------------
 # -- Telegram (Alarm botu) --------------------
@@ -1734,17 +1743,23 @@ def run_shell(cmd):
         log(f"Shell hata: {e}")
         return None
 
+def kill_own_tcpdump():
+    # Sadece bu scriptin tcpdump'i durdurulur (pcap yoluna gore). "killall tcpdump"
+    # ayni anda calisan ust pazar alarminin dinlemesini de kesiyordu.
+    # [t] hilesi: pkill'in kendi komut satiri desene uymasin
+    run_shell(f"su -c 'pkill -f \\"[t]cpdump.*{os.path.basename(PCAP_PATH)}\\" 2>/dev/null'")
+
 def start_tcpdump():
     log("Tcpdump baslatiliyor...")
     # Termux tcpdump yolu
     tcpdump_bin = "/data/data/com.termux/files/usr/bin/tcpdump"
-    run_shell("su -c 'killall tcpdump 2>/dev/null'")
+    kill_own_tcpdump()
     time.sleep(1)
     run_shell(f"su -c 'rm -f {PCAP_PATH}'")
     run_shell("su -c 'chmod 755 /data/local/tmp'")
     run_shell(f"chmod 755 {tcpdump_bin} 2>/dev/null")
     proc = subprocess.Popen(
-        f"su -c '{tcpdump_bin} -i any -s 0 tcp -w {PCAP_PATH}'",
+        f"su -c '{tcpdump_bin} -i any -U -s 0 tcp and host {GAME_SERVER} and port {GAME_PORT} -w {PCAP_PATH}'",
         shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
     )
     time.sleep(2)
@@ -1933,17 +1948,192 @@ def parse_per_packet(pkts, link_type=1):
             pass
     return verified
 
-def check_alarms(records, pkts=None, link_type=1):
-    if not records:
-        log("  Kayit bulunamadi.")
-        return
-    log(f"  {len(records)} kayit / {len(set(r['item_id'] for r in records))} unique ID analiz ediliyor...")
+# ── YENI PARSER: TCP akisi + AA55 cerceve + 0x1C2 pazar mesaji ───
+# Eski parser tum TCP verisini tek yigin yapip "isim + 20 byte" deseni
+# ariyordu. Bu, pazar disindaki mesajlarda (sohbet, oyuncu bilgisi vb.)
+# ve paket sirasi bozuldugunda sahte kayit uretebiliyordu.
+# Yeni parser sadece oyun sunucusunun akisini sira numarasina gore
+# birlestirir, AA55 ... 55AA cercevelerini ayirir ve sadece 0x1C2
+# (pazar listesi) mesajini byte byte, sayaclarla dogrulayarak okur.
 
-    # Dogrulama: ayni kayitlari paket paket de parse et
-    verified = None
-    if pkts:
-        verified = parse_per_packet(pkts, link_type)
-        log(f"  Dogrulama: bireysel paketlerde {len(verified)} kayit bulundu")
+def _tcp_parts(pkt, link_type):
+    if link_type == 276:
+        if len(pkt) < 20 or struct.unpack(">H", pkt[0:2])[0] != 0x0800: return None
+        ip_start = 20
+    elif link_type == 113:
+        if len(pkt) < 16 or struct.unpack(">H", pkt[14:16])[0] != 0x0800: return None
+        ip_start = 16
+    else:
+        if len(pkt) < 14 or struct.unpack(">H", pkt[12:14])[0] != 0x0800: return None
+        ip_start = 14
+    if len(pkt) < ip_start + 40 or (pkt[ip_start] >> 4) != 4: return None
+    if pkt[ip_start + 9] != 6: return None
+    ihl = (pkt[ip_start] & 0x0F) * 4
+    src = socket.inet_ntoa(pkt[ip_start + 12:ip_start + 16])
+    ts  = ip_start + ihl
+    if len(pkt) < ts + 20: return None
+    sport, dport, seq = struct.unpack(">HHI", pkt[ts:ts + 8])
+    doff = ((pkt[ts + 12] >> 4) & 0xF) * 4
+    return src, sport, dport, seq, pkt[ts + doff:]
+
+def extract_game_chunks(packets, link_type=1):
+    """Sunucudan gelen akisi TCP sira numarasina gore birlestirir.
+    Kayip paket (bosluk) varsa akisi orada boler, asla yapistirmaz."""
+    flows = {}
+    for pkt in packets:
+        try:
+            r = _tcp_parts(pkt, link_type)
+        except Exception:
+            continue
+        if not r: continue
+        src, sport, dport, seq, payload = r
+        if src != GAME_SERVER or sport != GAME_PORT or not payload: continue
+        segs = flows.setdefault(dport, {})
+        if len(payload) > len(segs.get(seq, b"")):
+            segs[seq] = payload
+    chunks = []
+    gaps = 0
+    for segs in flows.values():
+        first = next(iter(segs))
+        def rel(s):
+            d = (s - first) & 0xFFFFFFFF
+            return d - 0x100000000 if d >= 0x80000000 else d
+        cur, nxt = bytearray(), None
+        for r0, data in sorted((rel(s), d) for s, d in segs.items()):
+            if nxt is not None and r0 > nxt:
+                chunks.append(bytes(cur)); cur = bytearray(); gaps += 1
+                nxt = None
+            if nxt is None:
+                cur += data; nxt = r0 + len(data)
+            elif r0 + len(data) > nxt:
+                cur += data[nxt - r0:]; nxt = r0 + len(data)
+        if cur: chunks.append(bytes(cur))
+    return chunks, gaps
+
+def iter_frames(chunk):
+    i, n = 0, len(chunk)
+    while i + 6 <= n:
+        if chunk[i] != 0xAA or chunk[i + 1] != 0x55:
+            i += 1; continue
+        ln = struct.unpack("<H", chunk[i + 2:i + 4])[0]
+        end = i + 4 + ln
+        if end + 2 > n or chunk[end] != 0x55 or chunk[end + 1] != 0xAA:
+            i += 1; continue
+        yield chunk[i + 4:end]
+        i = end + 2
+
+def parse_market_frame(body):
+    """0x1C2 pazar mesaji. Yapi bozuksa None doner (hic kayit kullanilmaz)."""
+    n = len(body)
+    if n < 8 or struct.unpack("<H", body[0:2])[0] != MARKET_OPCODE: return None
+    shop_count = struct.unpack("<H", body[6:8])[0]
+    if shop_count == 0xFFFF: return []
+    p, recs = 8, []
+    for _ in range(shop_count):
+        if p + 6 > n: return None
+        name_len = struct.unpack("<H", body[p + 4:p + 6])[0]
+        p += 6
+        if not (1 <= name_len <= 40) or p + name_len * 2 + 1 > n: return None
+        try:
+            seller = body[p:p + name_len * 2].decode("utf-16-le")
+        except Exception:
+            return None
+        p += name_len * 2
+        item_count = body[p]; p += 1
+        if p + item_count * 20 > n: return None
+        for _ in range(item_count):
+            rec = body[p:p + 20]; p += 20
+            qty, _x, price, tail = struct.unpack("<HHQI", rec[4:20])
+            if tail != 0:
+                continue   # fiyat alani farkli olan ozel kayit, guvenilmez
+            recs.append({"seller": seller, "item_id": rec[0:4].hex(), "price": price,
+                         "qty": qty, "raw": rec.hex()})
+    if p != n: return None
+    return recs
+
+def parse_market(packets, link_type=1):
+    chunks, gaps = extract_game_chunks(packets, link_type)
+    records, frames_ok, frames_bad = [], 0, 0
+    for ch in chunks:
+        for body in iter_frames(ch):
+            if len(body) < 2 or struct.unpack("<H", body[0:2])[0] != MARKET_OPCODE:
+                continue
+            recs = parse_market_frame(body)
+            if recs is None:
+                frames_bad += 1
+            else:
+                frames_ok += 1
+                records += recs
+    return records, {"chunks": len(chunks), "gaps": gaps,
+                     "frames_ok": frames_ok, "frames_bad": frames_bad}
+
+# ── KANIT KAYDI (yanlis alarm incelemesi icin) ───────────────────
+def save_evidence(tag, text, pcap_src=None):
+    try:
+        os.makedirs(KANIT_DIR, exist_ok=True)
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        base = os.path.join(KANIT_DIR, f"{stamp}_{tag}")
+        with open(base + ".txt", "w", encoding="utf-8") as f:
+            f.write(text)
+        if pcap_src and os.path.exists(pcap_src):
+            with open(pcap_src, "rb") as a, open(base + ".pcap", "wb") as b:
+                b.write(a.read())
+        # En eski kanitlari sil (dosya adi zaman damgasiyla basliyor)
+        files = sorted(os.listdir(KANIT_DIR))
+        stamps = sorted(set(x[:15] for x in files))
+        for old in stamps[:-KANIT_MAX]:
+            for x in files:
+                if x.startswith(old):
+                    try: os.remove(os.path.join(KANIT_DIR, x))
+                    except Exception: pass
+        log(f"  Kanit kaydedildi: {base}.txt")
+    except Exception as e:
+        log(f"  Kanit kaydedilemedi: {e}")
+
+# ── TEKRAR SINIRI ────────────────────────────────────────────────
+# Ayni ilan (anahtar) en fazla TEKRAR_MAX kez Telegram'a gider.
+# Sayac dosyada tutulur, script yeniden baslasa da korunur.
+# Ilk alarmdan TEKRAR_SURE saniye sonra sayac sifirlanir.
+def _tekrar_yukle():
+    try:
+        with open(TEKRAR_FILE, "r", encoding="utf-8") as f:
+            d = _json.load(f)
+        now = time.time()
+        return {k: v for k, v in d.items() if now - v.get("ilk", 0) < TEKRAR_SURE}
+    except Exception:
+        return {}
+
+def tekrar_izin(key):
+    """Alarm gonderilebilirse (sayi, True), sinir dolduysa (sayi, False) doner."""
+    d = _tekrar_yukle()
+    e = d.get(key) or {"ilk": time.time(), "sayi": 0}
+    if e["sayi"] >= TEKRAR_MAX:
+        return e["sayi"], False
+    e["sayi"] += 1
+    d[key] = e
+    try:
+        with open(TEKRAR_FILE, "w", encoding="utf-8") as f:
+            _json.dump(d, f)
+    except Exception as ex:
+        log(f"  Tekrar dosyasi yazilamadi: {ex}")
+    return e["sayi"], True
+
+def _alarm_hits(cheapest):
+    hits = []
+    for alarm in ALARM_LIST:
+        cand = [cheapest[iid] for iid in alarm["item_ids"] if iid in cheapest]
+        if not cand: continue
+        hits.append((alarm, min(cand, key=lambda x: x["price"])))
+    return hits
+
+def check_alarms(records, pkts=None, link_type=1, pcap_path=None, stats=None):
+    if stats:
+        log(f"  Pazar mesaji: {stats['frames_ok']} saglam / {stats['frames_bad']} bozuk"
+            f"  (akis parcasi {stats['chunks']}, kayip bosluk {stats['gaps']})")
+    if not records:
+        log("  Pazar kaydi bulunamadi.")
+    else:
+        log(f"  {len(records)} kayit / {len(set(r['item_id'] for r in records))} unique ID analiz ediliyor...")
 
     cheapest = {}
     for r in records:
@@ -1952,28 +2142,51 @@ def check_alarms(records, pkts=None, link_type=1):
             cheapest[iid] = r
     all_alarm_ids = set(iid for alarm in ALARM_LIST for iid in alarm["item_ids"])
     fired = 0
-    for alarm in ALARM_LIST:
-        hits = [cheapest[iid] for iid in alarm["item_ids"] if iid in cheapest]
-        if not hits: continue
-        best = min(hits, key=lambda x: x["price"])
+    fired_names = set()
+    for alarm, best in _alarm_hits(cheapest):
         if best["price"] <= alarm["max_price"]:
-            # Dogrulama: bu kayit bireysel pakette de goruldumu?
-            if verified is not None:
-                key = (best["seller"], best["item_id"], best["price"])
-                if key not in verified:
-                    log(f"  ! SAHTE ALARM ENGELLENDI: {alarm['name']} @ {best['price']:,} gold")
-                    log(f"    Birlesik akisda var, bireysel pakette yok (paket siniri hatasi)")
-                    continue
-            fire_alarm(alarm["name"], best["seller"], best["price"], alarm["max_price"])
+            fired_names.add(alarm["name"])
+            sayi, izin = tekrar_izin(f"{best['seller']}|{best['item_id']}|{best['price']}")
+            if not izin:
+                log(f"  = {alarm['name']:<35} {best['price']:>14,}  (ayni ilan {sayi} kez bildirildi, gonderilmedi)")
+                continue
+            fire_alarm(alarm["name"], best["seller"], best["price"], alarm["max_price"], best["qty"], sayi)
             fired += 1
+            save_evidence("alarm_" + "".join(c if c.isalnum() else "_" for c in alarm["name"]), (
+                f"ALARM\\nitem   : {alarm['name']}\\nid     : {best['item_id']}\\n"
+                f"satan  : {best['seller']}\\nfiyat  : {best['price']:,}\\nadet   : {best['qty']}\\n"
+                f"esik   : {alarm['max_price']:,}\\nham    : {best['raw']}\\n"), pcap_path)
         else:
             pct = best["price"] / alarm["max_price"] * 100
             log(f"  x {alarm['name']:<35} {best['price']:>14,}  (esik {alarm['max_price']:,}  %{pct:.0f})")
-    unknown = {iid: cheapest[iid] for iid in cheapest if iid not in all_alarm_ids}
+    unknown = [iid for iid in cheapest if iid not in all_alarm_ids]
     if unknown:
         log(f"  [{len(unknown)} bilinmeyen ID pazarda goruldu]")
+
+    # Karsilastirma: eski parser bu taramada fazladan alarm verir miydi?
+    if pkts is not None:
+        try:
+            old = parse_market_records(extract_server_payloads(pkts, link_type))
+            ver = parse_per_packet(pkts, link_type)
+            old_cheap = {}
+            for r in old:
+                if (r["seller"], r["item_id"], r["price"]) not in ver: continue
+                if r["item_id"] not in old_cheap or r["price"] < old_cheap[r["item_id"]]["price"]:
+                    old_cheap[r["item_id"]] = r
+            extra = [(a, b) for a, b in _alarm_hits(old_cheap)
+                     if b["price"] <= a["max_price"] and a["name"] not in fired_names]
+            if extra:
+                lines = [f"{a['name']} | {b['seller']} | {b['item_id']} | {b['price']:,}" for a, b in extra]
+                log(f"  ! Eski parser {len(extra)} SAHTE alarm verirdi (gonderilmedi):")
+                for ln in lines: log(f"    {ln}")
+                save_evidence("eski_sahte", "Eski parserin verecegi ama yeni parserin vermedigi alarmlar\\n" +
+                              "\\n".join(lines) + "\\n", pcap_path)
+        except Exception as e:
+            log(f"  Karsilastirma hatasi: {e}")
+
     if fired == 0: log("  -> Esik altinda alarm yok.")
     else:          log(f"  *** {fired} ALARM ATESLENEDI! ***")
+
 
 def send_telegram(text):
     for chat_id in TELEGRAM_CHAT_IDS:
@@ -1991,14 +2204,16 @@ def send_telegram(text):
         except Exception as e:
             log(f"  Telegram hatasi ({chat_id}): {e}")
 
-def fire_alarm(item_name, seller, price, max_price):
-    log(f"  *** ALARM *** {item_name}  |  {seller}  |  {price:,} gold")
+def fire_alarm(item_name, seller, price, max_price, qty=1, sayi=1):
+    log(f"  *** ALARM *** {item_name}  |  {seller}  |  {price:,} gold  |  {qty} adet")
     msg = (
         "AR MARKET ALARMI!\\n\\n"
         f"Item  : {item_name}\\n"
         f"Satan : {seller}\\n"
         f"Fiyat : {price:,} gold\\n"
-        f"Esik  : {max_price:,} gold\\n\\n"
+        f"Adet  : {qty}\\n"
+        f"Esik  : {max_price:,} gold\\n"
+        f"Bildirim: {sayi}/{TEKRAR_MAX}\\n\\n"
         "Hemen pazari ac!"
     )
     send_telegram(msg)
@@ -2078,22 +2293,21 @@ def main():
                 continue
 
             pkts, link_type = read_packets(local_pcap)
-            payload = extract_server_payloads(pkts, link_type)
-            log(f"  {len(pkts)} paket / {len(payload):,} byte server verisi")
+            recs, stats = parse_market(pkts, link_type)
+            log(f"  {len(pkts)} paket okundu")
+
+            if stats["frames_ok"] == 0 and stats["frames_bad"] == 0:
+                log("  Pazar mesaji yok.")
+            else:
+                check_alarms(recs, pkts, link_type, local_pcap, stats)
 
             # Gecici dosyayi temizle
             try: os.remove(local_pcap)
             except: pass
 
-            if len(payload) == 0:
-                log("  Server verisi bos.")
-            else:
-                recs = parse_market_records(payload)
-                check_alarms(recs, pkts, link_type)
-
             log("  30sn sonra persomeni tekrar ac.")
             log("")
-            run_shell("su -c 'killall tcpdump 2>/dev/null'")
+            kill_own_tcpdump()
             time.sleep(2)
             tcpdump_proc  = None
             in_burst      = False
@@ -2107,7 +2321,7 @@ def main():
         traceback.print_exc()
     finally:
         log("Tcpdump durduruluyor...")
-        run_shell("su -c 'killall tcpdump 2>/dev/null'")
+        kill_own_tcpdump()
         log("Sistem durduruldu.")
 
 if __name__ == "__main__":
@@ -2204,421 +2418,552 @@ async function downloadYeniPazarScript() {
   const idCount    = Object.keys(idMapObj).length;
 
   // Script satırlarını birleştir — VERSION da buraya inject edilir
-  const scriptLines = [
-  "\"\"\"",
-  "NOWA - UST PAZAR ALARM SISTEMI (Termux / Telefon)",
-  "==================================================",
-  "Calistir : python yeni_pazar_alarm.py",
-  "Durdur   : Ctrl+C",
-  "\"\"\"",
-  "",
-  "import struct, subprocess, time, os, sys, urllib.request",
-  "import json as _json, ssl as _ssl",
-  "from datetime import datetime",
-  "",
-  "VERSION           = \"20260516170000\"",
-  "GITHUB_RAW_URL    = \"https://raw.githubusercontent.com/husounlu67-del/ar-market/main/yeni_pazar_alarm.py\"",
-  "SCRIPT_PATH       = os.path.abspath(__file__)",
-  "PCAP_PATH         = \"/data/local/tmp/yeni_pazar_scan.pcap\"",
-  "GAME_PORT         = 19001",
-  "MSG_TYPE          = 0x000002f8",
-  "",
-  "TELEGRAM_TOKEN    = \"8094835962:AAEdADtpFdeR9MK6f_2SJ3u5flCfR4mCMjI\"",
-  "TELEGRAM_CHAT_IDS = [\"1598896323\", \"8610188409\"]",
-  "",
-  "GIST_ID   = \"b6cae757f7651b69b99cb25b23bbf683\"",
-  "GIST_FILE = \"ar_alarm.json\"",
-  "",
-  "BEKLEME_SURE = 5",
-  "",
-      "ALARM_LIST = [" + alarmBlock + "]",
-      "ID_MAP = " + idMapBlock,
-  "",
-  "",
-  "def log(msg):",
-  "    ts = datetime.now().strftime('%H:%M:%S')",
-  "    print(f\"[{ts}] {msg}\", flush=True)",
-  "",
-  "",
-  "def load_gist_config():",
-  "    global ALARM_LIST, ID_MAP",
-  "    log(\"Gist'ten alarm listesi yukleniyor...\")",
-  "    try:",
-  "        ctx = _ssl._create_unverified_context()",
-  "        req = urllib.request.Request(",
-  "            f\"https://api.github.com/gists/{GIST_ID}\",",
-  "            headers={",
-  "                \"Accept\": \"application/vnd.github.v3+json\",",
-  "                \"X-GitHub-Api-Version\": \"2022-11-28\",",
-  "                \"User-Agent\": \"yeni-pazar-alarm\"",
-  "            }",
-  "        )",
-  "        with urllib.request.urlopen(req, timeout=15, context=ctx) as r:",
-  "            gist_raw = _json.loads(r.read().decode(\"utf-8\"))",
-  "",
-  "        content = gist_raw.get(\"files\", {}).get(GIST_FILE, {}).get(\"content\", \"\")",
-  "        if not content:",
-  "            log(\"  HATA: Gist dosyasi bos!\")",
-  "            return False",
-  "",
-  "        gist_data = _json.loads(content)",
-  "        prices    = gist_data.get(\"prices\", {})",
-  "        saved_ids = gist_data.get(\"savedIDs\", {})",
-  "",
-  "        alarm_lines = []",
-  "        id_map_tmp  = {}",
-  "",
-  "        for key, id_data in saved_ids.items():",
-  "            parts = key.split(\"|\")",
-  "            if len(parts) < 3:",
-  "                continue",
-  "            cat_id, item_name, level_name = parts[0], parts[1], parts[2]",
-  "            all_ids = id_data.get(\"confirmed\", []) + id_data.get(\"predicted\", [])",
-  "            if not all_ids:",
-  "                continue",
-  "            for id_ in all_ids:",
-  "                id_map_tmp[id_] = item_name + \" \" + level_name",
-  "            try:",
-  "                lv_data   = prices.get(cat_id, {}).get(item_name, {}).get(level_name, {})",
-  "                price_val = lv_data.get(\"price\", \"\")",
-  "                active    = lv_data.get(\"active\", False)",
-  "            except Exception:",
-  "                price_val, active = \"\", False",
-  "            if active and price_val:",
-  "                try:",
-  "                    max_price = int(str(price_val).replace(\",\", \"\").replace(\".\", \"\"))",
-  "                except ValueError:",
-  "                    continue",
-  "                alarm_lines.append({",
-  "                    \"name\"     : item_name + \" \" + level_name,",
-  "                    \"max_price\": max_price,",
-  "                    \"item_ids\" : all_ids",
-  "                })",
-  "",
-  "        ALARM_LIST.clear()",
-  "        ALARM_LIST.extend(alarm_lines)",
-  "        ID_MAP.update(id_map_tmp)",
-  "        log(f\"  {len(ALARM_LIST)} alarm yuklendi, {len(ID_MAP)} ID haritasinda\")",
-  "        return True",
-  "    except Exception as e:",
-  "        log(f\"  Gist yukleme hatasi: {e}\")",
-  "        return False",
-  "",
-  "",
-  "def check_update():",
-  "    try:",
-  "        ctx = _ssl._create_unverified_context()",
-  "        with urllib.request.urlopen(GITHUB_RAW_URL, timeout=10, context=ctx) as r:",
-  "            new_code = r.read().decode(\"utf-8\")",
-  "        for line in new_code.splitlines():",
-  "            if line.startswith(\"VERSION\"):",
-  "                new_ver = line.split(\"=\")[1].strip().strip('\"').strip(\"'\")",
-  "                if new_ver != VERSION:",
-  "                    log(f\"  Yeni versiyon: {new_ver}. Guncelleniyor...\")",
-  "                    with open(SCRIPT_PATH, \"w\", encoding=\"utf-8\") as f:",
-  "                        f.write(new_code)",
-  "                    os.execv(sys.executable, [sys.executable, SCRIPT_PATH])",
-  "                else:",
-  "                    log(f\"  Versiyon guncel: {VERSION}\")",
-  "                return",
-  "    except Exception as e:",
-  "        log(f\"  Guncelleme basarisiz: {e}\")",
-  "",
-  "",
-  "def run_shell(cmd):",
-  "    try:",
-  "        return subprocess.run(cmd, shell=True, capture_output=True, timeout=20)",
-  "    except Exception as e:",
-  "        log(f\"Shell hata: {e}\")",
-  "        return None",
-  "",
-  "",
-  "def get_pcap_size():",
-  "    try:",
-  "        r = run_shell(f\"su -c 'wc -c {PCAP_PATH} 2>/dev/null'\")",
-  "        if r and r.stdout:",
-  "            parts = r.stdout.decode(\"utf-8\", errors=\"ignore\").strip().split()",
-  "            if parts:",
-  "                return int(parts[0])",
-  "    except Exception:",
-  "        pass",
-  "    return 0",
-  "",
-  "",
-  "def start_tcpdump():",
-  "    tcpdump_bin = \"/data/data/com.termux/files/usr/bin/tcpdump\"",
-  "    run_shell(\"su -c 'killall tcpdump 2>/dev/null'\")",
-  "    time.sleep(1)",
-  "    run_shell(f\"su -c 'rm -f {PCAP_PATH}'\")",
-  "    run_shell(\"su -c 'chmod 755 /data/local/tmp'\")",
-  "    proc = subprocess.Popen(",
-  "        f\"su -c '{tcpdump_bin} -i any -s 0 tcp port {GAME_PORT} -w {PCAP_PATH}'\",",
-  "        shell=True,",
-  "        stdout=subprocess.DEVNULL,",
-  "        stderr=subprocess.DEVNULL",
-  "    )",
-  "    time.sleep(2)",
-  "    return proc",
-  "",
-  "",
-  "def stop_tcpdump(proc):",
-  "    try:",
-  "        proc.kill()",
-  "    except Exception:",
-  "        pass",
-  "    run_shell(\"su -c 'killall tcpdump 2>/dev/null'\")",
-  "    time.sleep(1)",
-  "",
-  "",
-  "def _pcap_bytes(path):",
-  "    result = b\"\"",
-  "    try:",
-  "        with open(path, \"rb\") as f:",
-  "            hdr = f.read(24)",
-  "            if len(hdr) < 24:",
-  "                return result",
-  "            magic_int = int.from_bytes(hdr[0:4], \"little\")",
-  "            endian = \"<\" if magic_int == 0xa1b2c3d4 else \">\"",
-  "            while True:",
-  "                ph = f.read(16)",
-  "                if len(ph) < 16:",
-  "                    break",
-  "                _, _, incl_len, _ = struct.unpack(endian + \"IIII\", ph)",
-  "                if incl_len > 65535:",
-  "                    break",
-  "                pkt = f.read(incl_len)",
-  "                if len(pkt) == incl_len:",
-  "                    result += pkt",
-  "    except Exception:",
-  "        pass",
-  "    return result",
-  "",
-  "",
-  "def pcap_kontrol_oku():",
-  "    local = os.path.join(os.path.expanduser(\"~\"), \"yp_kontrol.pcap\")",
-  "    try:",
-  "        run_shell(f\"su -c 'chmod 644 {PCAP_PATH} && cp {PCAP_PATH} {local} && chmod 644 {local}'\")",
-  "        if not os.path.exists(local):",
-  "            return b\"\"",
-  "        return _pcap_bytes(local)",
-  "    except Exception:",
-  "        return b\"\"",
-  "    finally:",
-  "        try:",
-  "            os.remove(local)",
-  "        except Exception:",
-  "            pass",
-  "",
-  "",
-  "def read_pcap_raw():",
-  "    local = os.path.join(os.path.expanduser(\"~\"), \"yp_scan.pcap\")",
-  "    try:",
-  "        run_shell(f\"su -c 'chmod 644 {PCAP_PATH} && cp {PCAP_PATH} {local} && chmod 644 {local}'\")",
-  "        if not os.path.exists(local) or os.path.getsize(local) < 24:",
-  "            return b\"\"",
-  "        return _pcap_bytes(local)",
-  "    except Exception as e:",
-  "        log(f\"  Pcap okuma hatasi: {e}\")",
-  "        return b\"\"",
-  "    finally:",
-  "        try:",
-  "            os.remove(local)",
-  "        except Exception:",
-  "            pass",
-  "        run_shell(f\"su -c 'rm -f {PCAP_PATH}'\")",
-  "",
-  "",
-  "def ust_pazar_acik_mi(stream):",
-  "    n = len(stream)",
-  "    i = 0",
-  "    while i < n - 8:",
-  "        if stream[i] == 0xaa and stream[i+1] == 0x55:",
-  "            frame_len = struct.unpack_from(\"<H\", stream, i+2)[0]",
-  "            msg_type  = struct.unpack_from(\"<I\", stream, i+4)[0]",
-  "            if msg_type == MSG_TYPE and frame_len > 1000:",
-  "                return True",
-  "        i += 1",
-  "    return False",
-  "",
-  "",
-  "def parse_yeni_pazar(stream):",
-  "    records, seen = [], set()",
-  "    n = len(stream)",
-  "    i = 0",
-  "    while i < n - 8:",
-  "        if stream[i] != 0xaa or stream[i+1] != 0x55:",
-  "            i += 1",
-  "            continue",
-  "        if i + 8 > n:",
-  "            break",
-  "        frame_len = struct.unpack_from(\"<H\", stream, i+2)[0]",
-  "        msg_type  = struct.unpack_from(\"<I\", stream, i+4)[0]",
-  "        if msg_type != MSG_TYPE or frame_len <= 1000:",
-  "            i += 2",
-  "            continue",
-  "        items_start = i + 15",
-  "        j = items_start",
-  "        while j + 29 <= n:",
-  "            if stream[j] == 0xaa and stream[j+1] == 0x55:",
-  "                break",
-  "            item_id = stream[j+4:j+8].hex()",
-  "            price   = int.from_bytes(stream[j+17:j+22], 'little')",
-  "            if item_id != \"00000000\" and 100_000 <= price <= 999_999_999_999_999:",
-  "                key = (item_id, price)",
-  "                if key not in seen:",
-  "                    seen.add(key)",
-  "                    records.append({\"item_id\": item_id, \"price\": price})",
-  "            j += 29",
-  "        i = j if j > items_start else i + 2",
-  "    return records",
-  "",
-  "",
-  "def check_alarms(records):",
-  "    if not records:",
-  "        log(\"  Parse edilen item yok.\")",
-  "        return",
-  "    log(f\"  {len(records)} kayit / {len(set(r['item_id'] for r in records))} unique ID\")",
-  "    cheapest = {}",
-  "    for r in records:",
-  "        iid = r[\"item_id\"]",
-  "        if iid not in cheapest or r[\"price\"] < cheapest[iid][\"price\"]:",
-  "            cheapest[iid] = r",
-  "    fired = 0",
-  "    for alarm in ALARM_LIST:",
-  "        hits = [cheapest[iid] for iid in alarm[\"item_ids\"] if iid in cheapest]",
-  "        if not hits:",
-  "            continue",
-  "        best = min(hits, key=lambda x: x[\"price\"])",
-  "        if best[\"price\"] <= alarm[\"max_price\"]:",
-  "            fire_alarm(alarm[\"name\"], best[\"item_id\"], best[\"price\"], alarm[\"max_price\"])",
-  "            fired += 1",
-  "        else:",
-  "            pct = best[\"price\"] / alarm[\"max_price\"] * 100",
-  "            log(f\"  x {alarm['name']:<40} {best['price']:>20,}  (%{pct:.0f})\")",
-  "    if fired == 0:",
-  "        log(\"  -> Esik altinda alarm yok.\")",
-  "    else:",
-  "        log(f\"  *** {fired} ALARM ATESLENEDI! ***\")",
-  "",
-  "",
-  "def send_telegram(text):",
-  "    for chat_id in TELEGRAM_CHAT_IDS:",
-  "        try:",
-  "            url     = f\"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage\"",
-  "            payload = _json.dumps({\"chat_id\": chat_id, \"text\": text}).encode(\"utf-8\")",
-  "            req     = urllib.request.Request(",
-  "                url, data=payload,",
-  "                headers={\"Content-Type\": \"application/json\"}",
-  "            )",
-  "            ctx = _ssl._create_unverified_context()",
-  "            with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:",
-  "                body = resp.read().decode(\"utf-8\")",
-  "                if '\"ok\":true' in body:",
-  "                    log(f\"  Telegram gonderildi -> {chat_id}\")",
-  "                else:",
-  "                    log(f\"  Telegram hatasi: {body[:100]}\")",
-  "        except Exception as e:",
-  "            log(f\"  Telegram hatasi: {e}\")",
-  "",
-  "",
-  "def fire_alarm(item_name, item_id, price, max_price):",
-  "    id_label = ID_MAP.get(item_id, item_id)",
-  "    log(f\"  *** ALARM *** {item_name} | {price:,} gold\")",
-  "    lines = [",
-  "        \"NOWA UST PAZAR ALARMI!\",",
-  "        \"\",",
-  "        \"Item  : \" + item_name,",
-  "        \"ID    : \" + id_label,",
-  "        \"Fiyat : \" + f\"{price:,}\" + \" gold\",",
-  "        \"Esik  : \" + f\"{max_price:,}\" + \" gold\",",
-  "        \"\",",
-  "        \"Hemen ust pazari ac!\"",
-  "    ]",
-  "    send_telegram(\"\\n\".join(lines))",
-  "",
-  "",
-  "def main():",
-  "    log(\"=\" * 65)",
-  "    log(\"  NOWA - UST PAZAR ALARM SISTEMI (Termux)\")",
-  "    log(f\"  Versiyon: {VERSION}\")",
-  "    log(\"=\" * 65)",
-  "    log(\"\")",
-  "",
-  "    log(\"Guncelleme kontrol ediliyor...\")",
-  "    check_update()",
-  "    log(\"\")",
-  "",
-  "    if not load_gist_config() or not ALARM_LIST:",
-  "        log(\"HATA: Alarm listesi bos!\")",
-  "        log(\"  HTML'de ust pazar itemlerini aktifle -> 'Ust Pazar Alarm Indir'.\")",
-  "        return",
-  "",
-  "    send_telegram(\"\\n\".join([",
-  "        \"NOWA Ust Pazar Alarm baslatildi\",",
-  "        f\"Versiyon : {VERSION}\",",
-  "        f\"Alarm    : {len(ALARM_LIST)}\",",
-  "        f\"ID harita: {len(ID_MAP)}\"",
-  "    ]))",
-  "    log(\"\")",
-  "",
-  "    scan_no = 0",
-  "",
-  "    try:",
-  "        while True:",
-  "            tcpdump_proc = start_tcpdump()",
-  "            log(\"Dinleniyor... Ust pazari ac.\")",
-  "",
-  "            while True:",
-  "                time.sleep(3)",
-  "                sz = get_pcap_size()",
-  "                if sz < 100:",
-  "                    continue",
-  "                raw = pcap_kontrol_oku()",
-  "                if ust_pazar_acik_mi(raw):",
-  "                    log(f\"  *** Ust pazar acildi! {BEKLEME_SURE}sn bekleniyor...\")",
-  "                    break",
-  "",
-  "            time.sleep(BEKLEME_SURE)",
-  "            stop_tcpdump(tcpdump_proc)",
-  "",
-  "            scan_no += 1",
-  "            log(f\"Tarama #{scan_no}\")",
-  "            stream = read_pcap_raw()",
-  "            log(f\"  Ham veri: {len(stream):,} byte\")",
-  "",
-  "            if len(stream) < 100:",
-  "                log(\"  Veri cok az, atlaniyor.\")",
-  "            else:",
-  "                recs = parse_yeni_pazar(stream)",
-  "                log(f\"  Parse edilen item: {len(recs)}\")",
-  "                check_alarms(recs)",
-  "",
-  "            log(\"  Bitti. Ust pazari tekrar ac \u2014 bekleniyor.\")",
-  "            log(\"\")",
-  "",
-  "    except KeyboardInterrupt:",
-  "        log(\"\\nKullanici durdurdu.\")",
-  "    except Exception as e:",
-  "        log(f\"\\nBeklenmeyen hata: {e}\")",
-  "        import traceback",
-  "        traceback.print_exc()",
-  "    finally:",
-  "        log(\"Tcpdump durduruluyor...\")",
-  "        run_shell(\"su -c 'killall tcpdump 2>/dev/null'\")",
-  "        log(\"Sistem durduruldu.\")",
-  "",
-  "",
-  "if __name__ == \"__main__\":",
-  "    main()",
-  ""
-  ];
+  const script = `"""
+NOWA - UST PAZAR ALARM SISTEMI (Termux / Telefon)
+==================================================
+Calistir : python yeni_pazar_alarm.py
+Durdur   : Ctrl+C
 
-  // VERSION satırlarını güncelle
-  const finalLines = scriptLines.map(line =>
-    line.replace('20260516170000', version)
-  );
+Gereksinimler (bir kez):
+  pkg install python tcpdump
+"""
 
-  const script = finalLines.join('\n');
+import struct, socket, subprocess, time, os, sys, urllib.request
+import json as _json, ssl as _ssl
+from datetime import datetime
+
+VERSION           = "${version}"
+GITHUB_RAW_URL    = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/yeni_pazar_alarm.py"
+SCRIPT_PATH       = os.path.abspath(__file__)
+PCAP_PATH         = "/data/local/tmp/yeni_pazar_scan.pcap"
+LOCAL_PCAP        = os.path.join(os.path.expanduser("~"), "yp_scan.pcap")
+GAME_SERVER       = "213.238.175.102"
+GAME_PORT         = 19001
+MSG_TYPE          = 0x02F8   # Ust pazar mesaji (AA 55 | uzunluk | F8 02 ... | 55 AA)
+LIST_SUBTYPE      = 2        # F8 02 xx xx xx xx [02] -> ilan listesi
+KAYIT_BOYU        = 29       # her ilan 29 byte
+
+TELEGRAM_TOKEN    = "8094835962:AAEdADtpFdeR9MK6f_2SJ3u5flCfR4mCMjI"
+TELEGRAM_CHAT_IDS = ["1598896323", "8610188409"]
+
+GIST_ID   = "b6cae757f7651b69b99cb25b23bbf683"
+GIST_FILE = "ar_alarm.json"
+
+TARAMA_ARALIGI        = 2               # sn: pcap bu aralikla kontrol edilir
+ROTATE_BYTES          = 3_000_000       # pcap bu boyutu gecince tcpdump yenilenir
+UPDATE_CHECK_INTERVAL = 60              # sn: script guncelleme kontrolu
+GIST_RELOAD_INTERVAL  = 120             # sn: sayfadaki fiyatlari yeniden yukle
+KANIT_DIR             = os.path.join(os.path.expanduser("~"), "ust_pazar_kanit")
+KANIT_MAX             = 40
+TEKRAR_FILE           = os.path.join(os.path.expanduser("~"), "ust_pazar_tekrar.json")
+TEKRAR_MAX            = 10       # ayni ilan (ilan no+item+fiyat) en fazla bu kadar bildirilir
+TEKRAR_SURE           = 24 * 3600  # sayac ilk alarmdan bu kadar saniye sonra sifirlanir
+
+ALARM_LIST = [${alarmBlock}]
+ID_MAP = ${idMapBlock}
+
+
+def log(msg):
+    ts = datetime.now().strftime('%H:%M:%S')
+    print(f"[{ts}] {msg}", flush=True)
+
+
+def load_gist_config(quiet=False):
+    """Sayfadaki (Gist) guncel fiyatlari yukler. Basarisizsa mevcut liste kalir."""
+    global ALARM_LIST, ID_MAP
+    if not quiet:
+        log("Gist'ten alarm listesi yukleniyor...")
+    try:
+        ctx = _ssl._create_unverified_context()
+        req = urllib.request.Request(
+            f"https://api.github.com/gists/{GIST_ID}",
+            headers={
+                "Accept": "application/vnd.github.v3+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+                "User-Agent": "yeni-pazar-alarm"
+            }
+        )
+        with urllib.request.urlopen(req, timeout=15, context=ctx) as r:
+            gist_raw = _json.loads(r.read().decode("utf-8"))
+
+        content = gist_raw.get("files", {}).get(GIST_FILE, {}).get("content", "")
+        if not content:
+            log("  HATA: Gist dosyasi bos!")
+            return False
+
+        gist_data = _json.loads(content)
+        prices    = gist_data.get("prices", {})
+        saved_ids = gist_data.get("savedIDs", {})
+
+        alarm_lines = []
+        id_map_tmp  = {}
+
+        for key, id_data in saved_ids.items():
+            parts = key.split("|")
+            if len(parts) < 3:
+                continue
+            cat_id, item_name, level_name = parts[0], parts[1], parts[2]
+            all_ids = id_data.get("confirmed", []) + id_data.get("predicted", [])
+            if not all_ids:
+                continue
+            for id_ in all_ids:
+                id_map_tmp[id_] = item_name + " " + level_name
+            try:
+                lv_data   = prices.get(cat_id, {}).get(item_name, {}).get(level_name, {})
+                price_val = lv_data.get("price", "")
+                active    = lv_data.get("active", False)
+            except Exception:
+                price_val, active = "", False
+            if active and price_val:
+                digits = "".join(c for c in str(price_val) if c.isdigit())
+                if not digits:
+                    continue
+                alarm_lines.append({
+                    "name"     : item_name + " " + level_name,
+                    "max_price": int(digits),
+                    "item_ids" : all_ids
+                })
+
+        if not alarm_lines:
+            log("  Gist'te aktif alarm yok, mevcut liste korunuyor.")
+            return False
+        changed = len(alarm_lines) != len(ALARM_LIST) or alarm_lines != ALARM_LIST
+        ALARM_LIST[:] = alarm_lines
+        ID_MAP.update(id_map_tmp)
+        if changed or not quiet:
+            log(f"  {len(ALARM_LIST)} alarm yuklendi, {len(ID_MAP)} ID haritasinda")
+        return True
+    except Exception as e:
+        log(f"  Gist yukleme hatasi: {e}")
+        return False
+
+
+def check_update():
+    try:
+        ctx = _ssl._create_unverified_context()
+        with urllib.request.urlopen(GITHUB_RAW_URL, timeout=10, context=ctx) as r:
+            new_code = r.read().decode("utf-8")
+        for line in new_code.splitlines():
+            if line.startswith("VERSION"):
+                new_ver = line.split("=")[1].strip().strip('"').strip("'")
+                if new_ver != VERSION:
+                    log(f"  Yeni versiyon: {new_ver}. Guncelleniyor...")
+                    stop_tcpdump(None)
+                    with open(SCRIPT_PATH, "w", encoding="utf-8") as f:
+                        f.write(new_code)
+                    os.execv(sys.executable, [sys.executable, SCRIPT_PATH])
+                return
+    except Exception as e:
+        log(f"  Guncelleme basarisiz: {e}")
+
+
+# ── TCPDUMP ──────────────────────────────────────────────────────
+# Sadece KENDI tcpdump'imizi durdururuz (pcap yoluna gore). "killall tcpdump"
+# ayni anda calisan ar_alarm.py'nin dinlemesini de kesiyordu.
+def run_shell(cmd):
+    try:
+        return subprocess.run(cmd, shell=True, capture_output=True, timeout=20)
+    except Exception as e:
+        log(f"Shell hata: {e}")
+        return None
+
+
+def get_pcap_size():
+    try:
+        r = run_shell(f"su -c 'wc -c {PCAP_PATH} 2>/dev/null'")
+        if r and r.stdout:
+            parts = r.stdout.decode("utf-8", errors="ignore").strip().split()
+            if parts:
+                return int(parts[0])
+    except Exception:
+        pass
+    return 0
+
+
+def stop_tcpdump(proc):
+    if proc is not None:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+    # [t] hilesi: pkill'in kendi komut satiri desene uymasin
+    run_shell(f"su -c 'pkill -f \\"[t]cpdump.*{os.path.basename(PCAP_PATH)}\\" 2>/dev/null'")
+    time.sleep(1)
+
+
+def start_tcpdump():
+    tcpdump_bin = "/data/data/com.termux/files/usr/bin/tcpdump"
+    stop_tcpdump(None)
+    run_shell(f"su -c 'rm -f {PCAP_PATH}'")
+    run_shell("su -c 'chmod 755 /data/local/tmp'")
+    # -U: her paket aninda dosyaya yazilir (tampon beklenmez)
+    proc = subprocess.Popen(
+        f"su -c '{tcpdump_bin} -i any -U -s 0 tcp and host {GAME_SERVER} and port {GAME_PORT} -w {PCAP_PATH}'",
+        shell=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
+    time.sleep(2)
+    return proc
+
+
+def read_packets():
+    """Calisan tcpdump'in dosyasini kopyalayip paketleri okur."""
+    packets, link_type = [], 1
+    try:
+        run_shell(f"su -c 'cp {PCAP_PATH} {LOCAL_PCAP} && chmod 644 {LOCAL_PCAP}'")
+        with open(LOCAL_PCAP, "rb") as f:
+            magic = f.read(4)
+            if len(magic) < 4:
+                return packets, link_type
+            endian = "<" if magic == b"\\xd4\\xc3\\xb2\\xa1" else ">"
+            gh = f.read(20)
+            if len(gh) == 20:
+                link_type = struct.unpack(endian + "I", gh[16:20])[0]
+            while True:
+                hdr = f.read(16)
+                if len(hdr) < 16:
+                    break
+                _, _, incl_len, _ = struct.unpack(endian + "IIII", hdr)
+                if incl_len > 262144:
+                    break
+                data = f.read(incl_len)
+                if len(data) < incl_len:
+                    break   # tcpdump henuz yaziyor, son paket yarim
+                packets.append(data)
+    except Exception as e:
+        log(f"  Pcap okuma hatasi: {e}")
+    return packets, link_type
+
+
+# ── PARSER: TCP akisi + AA55 cerceve + 0x2F8 ust pazar mesaji ────
+# Eski parser paketleri IP/TCP basliklariyla birlikte birlestiriyordu; ilk
+# paketten sonraki ilanlar kayiyor, cogu okunamiyordu. Ayrica 1000 byte'tan
+# kucuk listeler (az ilanli sayfa/arama) hic algilanmiyordu.
+def _tcp_parts(pkt, link_type):
+    if link_type == 276:
+        if len(pkt) < 20 or struct.unpack(">H", pkt[0:2])[0] != 0x0800: return None
+        ip_start = 20
+    elif link_type == 113:
+        if len(pkt) < 16 or struct.unpack(">H", pkt[14:16])[0] != 0x0800: return None
+        ip_start = 16
+    else:
+        if len(pkt) < 14 or struct.unpack(">H", pkt[12:14])[0] != 0x0800: return None
+        ip_start = 14
+    if len(pkt) < ip_start + 40 or (pkt[ip_start] >> 4) != 4: return None
+    if pkt[ip_start + 9] != 6: return None
+    ihl = (pkt[ip_start] & 0x0F) * 4
+    src = socket.inet_ntoa(pkt[ip_start + 12:ip_start + 16])
+    ts  = ip_start + ihl
+    if len(pkt) < ts + 20: return None
+    sport, dport, seq = struct.unpack(">HHI", pkt[ts:ts + 8])
+    doff = ((pkt[ts + 12] >> 4) & 0xF) * 4
+    return src, sport, dport, seq, pkt[ts + doff:]
+
+
+def extract_game_chunks(packets, link_type=1):
+    """Sunucu akisini TCP sira numarasina gore birlestirir.
+    Donus: [(port, akistaki_baslangic, bytes)]. Kayip paket varsa akis bolunur."""
+    flows = {}
+    for pkt in packets:
+        try:
+            r = _tcp_parts(pkt, link_type)
+        except Exception:
+            continue
+        if not r: continue
+        src, sport, dport, seq, payload = r
+        if src != GAME_SERVER or sport != GAME_PORT or not payload: continue
+        segs = flows.setdefault(dport, {})
+        if len(payload) > len(segs.get(seq, b"")):
+            segs[seq] = payload
+    chunks = []
+    for dport, segs in flows.items():
+        first = next(iter(segs))
+        def rel(s):
+            d = (s - first) & 0xFFFFFFFF
+            return d - 0x100000000 if d >= 0x80000000 else d
+        cur, start, nxt = bytearray(), None, None
+        for r0, data in sorted((rel(s), d) for s, d in segs.items()):
+            if nxt is not None and r0 > nxt:
+                chunks.append((dport, start, bytes(cur))); cur = bytearray(); nxt = None
+            if nxt is None:
+                cur += data; start = r0; nxt = r0 + len(data)
+            elif r0 + len(data) > nxt:
+                cur += data[nxt - r0:]; nxt = r0 + len(data)
+        if cur: chunks.append((dport, start, bytes(cur)))
+    return chunks
+
+
+def iter_frames(chunk):
+    i, n = 0, len(chunk)
+    while i + 6 <= n:
+        if chunk[i] != 0xAA or chunk[i + 1] != 0x55:
+            i += 1; continue
+        ln = struct.unpack("<H", chunk[i + 2:i + 4])[0]
+        end = i + 4 + ln
+        if end + 2 > n or chunk[end] != 0x55 or chunk[end + 1] != 0xAA:
+            i += 1; continue
+        yield i, chunk[i + 4:end]
+        i = end + 2
+
+
+def parse_ust_pazar_frame(body):
+    """F8 02 | 4 byte | 02 | u32 sayi | sayi x 29 byte ilan.
+    Ilan: u32 ilan_no | u32 item_id | u32 adet | u32 ? | 1 byte | u64 fiyat | u32 ?
+    Yapi tutmazsa None doner (mesajdaki hicbir kayit kullanilmaz)."""
+    n = len(body)
+    if n < 11 or struct.unpack("<H", body[0:2])[0] != MSG_TYPE or body[6] != LIST_SUBTYPE:
+        return None
+    count = struct.unpack("<I", body[7:11])[0]
+    if 11 + count * KAYIT_BOYU != n:
+        return None
+    recs = []
+    for k in range(count):
+        rec = body[11 + k * KAYIT_BOYU:11 + (k + 1) * KAYIT_BOYU]
+        listing, qty = struct.unpack("<I", rec[0:4])[0], struct.unpack("<I", rec[8:12])[0]
+        price = struct.unpack("<Q", rec[17:25])[0]
+        recs.append({"item_id": rec[4:8].hex(), "price": price, "qty": qty,
+                     "listing": listing, "raw": rec.hex()})
+    return recs
+
+
+def find_market_pages(packets, link_type):
+    """Tam gelmis her ust pazar listesi icin (anahtar, kayitlar) dondurur.
+    Anahtar = mesajin akistaki konumu; ayni sayfa iki kez islenmez."""
+    pages, bad = [], 0
+    for dport, start, chunk in extract_game_chunks(packets, link_type):
+        for off, body in iter_frames(chunk):
+            if len(body) < 7 or struct.unpack("<H", body[0:2])[0] != MSG_TYPE or body[6] != LIST_SUBTYPE:
+                continue
+            recs = parse_ust_pazar_frame(body)
+            if recs is None:
+                bad += 1
+            else:
+                pages.append(((dport, start + off), recs))
+    return pages, bad
+
+
+# ── KANIT KAYDI ──────────────────────────────────────────────────
+def save_evidence(tag, text, pcap_src=None):
+    try:
+        os.makedirs(KANIT_DIR, exist_ok=True)
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        base = os.path.join(KANIT_DIR, f"{stamp}_{tag}")
+        with open(base + ".txt", "w", encoding="utf-8") as f:
+            f.write(text)
+        if pcap_src and os.path.exists(pcap_src):
+            with open(pcap_src, "rb") as a, open(base + ".pcap", "wb") as b:
+                b.write(a.read())
+        files = sorted(os.listdir(KANIT_DIR))
+        stamps = sorted(set(x[:15] for x in files))
+        for old in stamps[:-KANIT_MAX]:
+            for x in files:
+                if x.startswith(old):
+                    try: os.remove(os.path.join(KANIT_DIR, x))
+                    except Exception: pass
+        log(f"  Kanit kaydedildi: {base}.txt")
+    except Exception as e:
+        log(f"  Kanit kaydedilemedi: {e}")
+
+
+# ── TEKRAR SINIRI ────────────────────────────────────────────────
+# Ayni ilan (anahtar) en fazla TEKRAR_MAX kez Telegram'a gider.
+# Sayac dosyada tutulur, script yeniden baslasa da korunur.
+# Ilk alarmdan TEKRAR_SURE saniye sonra sayac sifirlanir.
+def _tekrar_yukle():
+    try:
+        with open(TEKRAR_FILE, "r", encoding="utf-8") as f:
+            d = _json.load(f)
+        now = time.time()
+        return {k: v for k, v in d.items() if now - v.get("ilk", 0) < TEKRAR_SURE}
+    except Exception:
+        return {}
+
+def tekrar_izin(key):
+    """Alarm gonderilebilirse (sayi, True), sinir dolduysa (sayi, False) doner."""
+    d = _tekrar_yukle()
+    e = d.get(key) or {"ilk": time.time(), "sayi": 0}
+    if e["sayi"] >= TEKRAR_MAX:
+        return e["sayi"], False
+    e["sayi"] += 1
+    d[key] = e
+    try:
+        with open(TEKRAR_FILE, "w", encoding="utf-8") as f:
+            _json.dump(d, f)
+    except Exception as ex:
+        log(f"  Tekrar dosyasi yazilamadi: {ex}")
+    return e["sayi"], True
+
+
+def check_alarms(records, pcap_path=None):
+    if not records:
+        log("  Listede ilan yok.")
+        return
+    log(f"  {len(records)} ilan / {len(set(r['item_id'] for r in records))} unique ID")
+    cheapest = {}
+    for r in records:
+        iid = r["item_id"]
+        if iid not in cheapest or r["price"] < cheapest[iid]["price"]:
+            cheapest[iid] = r
+    fired = 0
+    for alarm in ALARM_LIST:
+        hits = [cheapest[iid] for iid in alarm["item_ids"] if iid in cheapest]
+        if not hits:
+            continue
+        best = min(hits, key=lambda x: x["price"])
+        if best["price"] <= alarm["max_price"]:
+            sayi, izin = tekrar_izin(f"{best['listing']}|{best['item_id']}|{best['price']}")
+            if not izin:
+                log(f"  = {alarm['name']:<40} {best['price']:>26,}  (ayni ilan {sayi} kez bildirildi, gonderilmedi)")
+                continue
+            fire_alarm(alarm["name"], best, alarm["max_price"], sayi)
+            fired += 1
+            save_evidence("alarm_" + "".join(c if c.isalnum() else "_" for c in alarm["name"]), (
+                f"UST PAZAR ALARM\\nitem   : {alarm['name']}\\nid     : {best['item_id']}\\n"
+                f"ilan   : {best['listing']}\\nfiyat  : {best['price']:,}\\nadet   : {best['qty']}\\n"
+                f"esik   : {alarm['max_price']:,}\\nham    : {best['raw']}\\n"), pcap_path)
+        else:
+            pct = best["price"] / alarm["max_price"] * 100
+            log(f"  x {alarm['name']:<40} {best['price']:>26,}  (%{pct:.0f})")
+    if fired == 0:
+        log("  -> Esik altinda alarm yok.")
+    else:
+        log(f"  *** {fired} ALARM ATESLENEDI! ***")
+
+
+def send_telegram(text):
+    for chat_id in TELEGRAM_CHAT_IDS:
+        try:
+            url     = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+            payload = _json.dumps({"chat_id": chat_id, "text": text}).encode("utf-8")
+            req     = urllib.request.Request(
+                url, data=payload,
+                headers={"Content-Type": "application/json"}
+            )
+            ctx = _ssl._create_unverified_context()
+            with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:
+                body = resp.read().decode("utf-8")
+                if '"ok":true' in body:
+                    log(f"  Telegram gonderildi -> {chat_id}")
+                else:
+                    log(f"  Telegram hatasi: {body[:100]}")
+        except Exception as e:
+            log(f"  Telegram hatasi: {e}")
+
+
+def fire_alarm(item_name, rec, max_price, sayi=1):
+    id_label = ID_MAP.get(rec["item_id"], rec["item_id"])
+    log(f"  *** ALARM *** {item_name} | {rec['price']:,} gold | {rec['qty']} adet")
+    lines = [
+        "NOWA UST PAZAR ALARMI!",
+        "",
+        "Item  : " + item_name,
+        "ID    : " + id_label,
+        "Fiyat : " + f"{rec['price']:,}" + " gold",
+        "Adet  : " + str(rec["qty"]),
+        "Esik  : " + f"{max_price:,}" + " gold",
+        f"Bildirim: {sayi}/{TEKRAR_MAX}",
+        "",
+        "Hemen ust pazari ac!"
+    ]
+    send_telegram("\\n".join(lines))
+
+
+def main():
+    log("=" * 65)
+    log("  NOWA - UST PAZAR ALARM SISTEMI (Termux)")
+    log(f"  Versiyon: {VERSION}")
+    log("=" * 65)
+    log("")
+
+    log("Guncelleme kontrol ediliyor...")
+    check_update()
+    log("")
+
+    if not load_gist_config():
+        log(f"  Gist okunamadi, script icindeki liste kullaniliyor ({len(ALARM_LIST)} alarm).")
+    if not ALARM_LIST:
+        log("HATA: Alarm listesi bos!")
+        log("  HTML'de ust pazar itemlerini aktifle -> 'Ust Pazar Alarm Indir'.")
+        return
+
+    send_telegram("\\n".join([
+        "NOWA Ust Pazar Alarm baslatildi",
+        f"Versiyon : {VERSION}",
+        f"Alarm    : {len(ALARM_LIST)}",
+        f"ID harita: {len(ID_MAP)}"
+    ]))
+    log("")
+
+    scan_no      = 0
+    tcpdump_proc = None
+    seen_pages   = set()
+    last_size    = -1
+    last_update  = time.time()
+    last_gist    = time.time()
+
+    try:
+        while True:
+            if tcpdump_proc is None or tcpdump_proc.poll() is not None:
+                tcpdump_proc = start_tcpdump()
+                seen_pages   = set()
+                last_size    = -1
+                log("Dinleniyor... Ust pazari ac.")
+
+            time.sleep(TARAMA_ARALIGI)
+
+            now = time.time()
+            if now - last_update >= UPDATE_CHECK_INTERVAL:
+                last_update = now
+                check_update()
+            if now - last_gist >= GIST_RELOAD_INTERVAL:
+                last_gist = now
+                load_gist_config(quiet=True)
+
+            size = get_pcap_size()
+            if size < 100 or size == last_size:
+                continue
+            last_size = size
+
+            pkts, link_type = read_packets()
+            pages, bad = find_market_pages(pkts, link_type)
+            new_pages = [(k, r) for k, r in pages if k not in seen_pages]
+            if bad:
+                log(f"  ! {bad} bozuk ust pazar mesaji atlandi")
+            if new_pages:
+                scan_no += 1
+                recs = [r for _, rs in new_pages for r in rs]
+                log(f"Tarama #{scan_no}: {len(new_pages)} yeni sayfa")
+                for k, _ in new_pages:
+                    seen_pages.add(k)
+                check_alarms(recs, LOCAL_PCAP)
+                log("  Bitti. Dinleme devam ediyor.")
+                log("")
+
+            try: os.remove(LOCAL_PCAP)
+            except Exception: pass
+
+            # Dosya cok buyudu ve su an okunacak sayfa kalmadiysa tcpdump'i yenile
+            if size >= ROTATE_BYTES:
+                log("  Pcap buyudu, tcpdump yenileniyor...")
+                stop_tcpdump(tcpdump_proc)
+                tcpdump_proc = None
+
+    except KeyboardInterrupt:
+        log("\\nKullanici durdurdu.")
+    except Exception as e:
+        log(f"\\nBeklenmeyen hata: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        log("Tcpdump durduruluyor...")
+        stop_tcpdump(tcpdump_proc)
+        log("Sistem durduruldu.")
+
+
+if __name__ == "__main__":
+    main()
+`;
 
   const REPO_OWNER = 'husounlu67-del';
   const REPO_NAME  = 'ar-market';

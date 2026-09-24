@@ -3,18 +3,25 @@ NOWA - UST PAZAR ALARM SISTEMI (Termux / Telefon)
 ==================================================
 Calistir : python yeni_pazar_alarm.py
 Durdur   : Ctrl+C
+
+Gereksinimler (bir kez):
+  pkg install python tcpdump
 """
 
-import struct, subprocess, time, os, sys, urllib.request
+import struct, socket, subprocess, time, os, sys, urllib.request
 import json as _json, ssl as _ssl
 from datetime import datetime
 
-VERSION           = "20260516121113"
+VERSION           = "20260924224934"
 GITHUB_RAW_URL    = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/yeni_pazar_alarm.py"
 SCRIPT_PATH       = os.path.abspath(__file__)
 PCAP_PATH         = "/data/local/tmp/yeni_pazar_scan.pcap"
+LOCAL_PCAP        = os.path.join(os.path.expanduser("~"), "yp_scan.pcap")
+GAME_SERVER       = "213.238.175.102"
 GAME_PORT         = 19001
-MSG_TYPE          = 0x000002f8
+MSG_TYPE          = 0x02F8   # Ust pazar mesaji (AA 55 | uzunluk | F8 02 ... | 55 AA)
+LIST_SUBTYPE      = 2        # F8 02 xx xx xx xx [02] -> ilan listesi
+KAYIT_BOYU        = 29       # her ilan 29 byte
 
 TELEGRAM_TOKEN    = "8094835962:AAEdADtpFdeR9MK6f_2SJ3u5flCfR4mCMjI"
 TELEGRAM_CHAT_IDS = ["1598896323", "8610188409"]
@@ -22,7 +29,15 @@ TELEGRAM_CHAT_IDS = ["1598896323", "8610188409"]
 GIST_ID   = "b6cae757f7651b69b99cb25b23bbf683"
 GIST_FILE = "ar_alarm.json"
 
-BEKLEME_SURE = 5
+TARAMA_ARALIGI        = 2               # sn: pcap bu aralikla kontrol edilir
+ROTATE_BYTES          = 3_000_000       # pcap bu boyutu gecince tcpdump yenilenir
+UPDATE_CHECK_INTERVAL = 60              # sn: script guncelleme kontrolu
+GIST_RELOAD_INTERVAL  = 120             # sn: sayfadaki fiyatlari yeniden yukle
+KANIT_DIR             = os.path.join(os.path.expanduser("~"), "ust_pazar_kanit")
+KANIT_MAX             = 40
+TEKRAR_FILE           = os.path.join(os.path.expanduser("~"), "ust_pazar_tekrar.json")
+TEKRAR_MAX            = 10       # ayni ilan (ilan no+item+fiyat) en fazla bu kadar bildirilir
+TEKRAR_SURE           = 24 * 3600  # sayac ilk alarmdan bu kadar saniye sonra sifirlanir
 
 ALARM_LIST = [
     {"name": "Hope's Frozen Staff +0", "max_price": 5000000, "item_ids": ["b078450b"]},
@@ -290,6 +305,7 @@ ALARM_LIST = [
     {"name": "Wrath's Spear Reb+19", "max_price": 5000000000, "item_ids": ["0be87e09"]},
     {"name": "Wrath's Spear Reb+20", "max_price": 5000000000, "item_ids": ["0ce87e09"]},
     {"name": "Wrath's Spear Reb+21", "max_price": 5000000000, "item_ids": ["0de87e09"]},
+    {"name": "Hope's Fire Staff +0", "max_price": 220000000, "item_ids": []},
     {"name": "Hope's Fire Staff +1", "max_price": 20000000, "item_ids": ["6787480b"]},
     {"name": "Hope's Fire Staff +2", "max_price": 20000000, "item_ids": ["6887480b"]},
     {"name": "Hope's Fire Staff +3", "max_price": 20000000, "item_ids": ["6987480b"]},
@@ -546,7 +562,7 @@ ALARM_LIST = [
     {"name": "Venom Hammer +3", "max_price": 10000000, "item_ids": ["21fd560b"]},
     {"name": "Venom Hammer +4", "max_price": 15000000, "item_ids": ["22fd560b"]},
     {"name": "Venom Hammer +5", "max_price": 20000000, "item_ids": ["23fd560b"]},
-    {"name": "Venom Hammer +6", "max_price": 120000000, "item_ids": ["24fd560b"]},
+    {"name": "Venom Hammer +6", "max_price": 50000000, "item_ids": ["24fd560b"]},
     {"name": "Venom Hammer +7", "max_price": 220000000, "item_ids": ["25fd560b"]},
     {"name": "Venom Hammer +8", "max_price": 220000000, "item_ids": ["26fd560b"]},
     {"name": "Venom Hammer +9", "max_price": 5000000000, "item_ids": ["27fd560b"]},
@@ -697,6 +713,8 @@ ALARM_LIST = [
     {"name": "Giant Wrath Spear +8", "max_price": 1000000000, "item_ids": ["3281a031"]},
     {"name": "Giant Wrath Spear +9", "max_price": 5000000000, "item_ids": ["3381a031"]},
     {"name": "Giant Wrath Spear +10", "max_price": 5000000000, "item_ids": ["3481a031"]},
+    {"name": "Giandt Katana Sword +0", "max_price": 220000000, "item_ids": ["0e479431"]},
+    {"name": "Giant Lords Sentinial +0", "max_price": 150000000, "item_ids": ["36e89b31"]},
     {"name": "Shade Dagger +5", "max_price": 5000000, "item_ids": ["15eea006", "3deea006"]},
     {"name": "Shade Dagger +6", "max_price": 14000000, "item_ids": ["16eea006", "3eeea006"]},
     {"name": "Shade Dagger +7", "max_price": 20000000, "item_ids": ["17eea006", "3feea006"]},
@@ -922,7 +940,7 @@ ALARM_LIST = [
     {"name": "Giant Phantom Sword Reb+3", "max_price": 80000000, "item_ids": ["59ee8b07"]},
     {"name": "Giant Phantom Sword Reb+4", "max_price": 220000000, "item_ids": ["5aee8b07"]},
     {"name": "Giant Phantom Sword Reb+5", "max_price": 220000000, "item_ids": ["5bee8b07"]},
-    {"name": "Giant Phantom Sword Reb+6", "max_price": 2500000000, "item_ids": ["5cee8b07"]},
+    {"name": "Giant Phantom Sword Reb+6", "max_price": 1100000000, "item_ids": ["5cee8b07"]},
     {"name": "Giant Phantom Sword Reb+7", "max_price": 500000000, "item_ids": ["5dee8b07"]},
     {"name": "Giant Phantom Sword Reb+8", "max_price": 1000000000, "item_ids": ["5eee8b07"]},
     {"name": "Giant Phantom Sword Reb+9", "max_price": 2000000000, "item_ids": ["5fee8b07"]},
@@ -1016,22 +1034,28 @@ ALARM_LIST = [
     {"name": "Bloody Bow Reb+20", "max_price": 5000000000, "item_ids": ["0a38080a"]},
     {"name": "Bloody Bow Reb+21", "max_price": 5000000000, "item_ids": ["0b38080a"]},
     {"name": "Master Warrior Earring Old", "max_price": 1000000, "item_ids": ["956ed117"]},
+    {"name": "Master Warrior Earring +0", "max_price": 1000000, "item_ids": []},
     {"name": "Master Warrior Earring +1", "max_price": 250000000, "item_ids": ["1b068212"]},
     {"name": "Master Warrior Earring +3", "max_price": 1000000000, "item_ids": ["1d068212"]},
     {"name": "Master Rogue Earring Old", "max_price": 40000000, "item_ids": ["7e72d117"]},
     {"name": "Master Rogue Earring +0", "max_price": 220000000, "item_ids": ["f8098212"]},
+    {"name": "Master Rogue Earring +1", "max_price": 50000000, "item_ids": []},
+    {"name": "Master Mage Earring Old", "max_price": 10000000, "item_ids": []},
     {"name": "Master Priest Earring Old", "max_price": 10000000, "item_ids": ["507ad117"]},
+    {"name": "Master Priest Earring +0", "max_price": 20000000, "item_ids": []},
     {"name": "Master Courage Ring Old", "max_price": 1000000, "item_ids": ["6d7dd117"]},
     {"name": "Master Courage Ring +0", "max_price": 15000000, "item_ids": ["3019ad13"]},
     {"name": "Master Courage Ring +1", "max_price": 250000000, "item_ids": ["d119ad13"]},
     {"name": "Master Courage Ring +2", "max_price": 1000000000, "item_ids": ["d219ad13"]},
     {"name": "Master Courage Ring +3", "max_price": 1000000000, "item_ids": ["d319ad13"]},
     {"name": "Master Hextech Ring Old", "max_price": 2000000, "item_ids": ["5681d117"]},
+    {"name": "Master Hextech Ring +0", "max_price": 2000000, "item_ids": []},
     {"name": "Master Hextech Ring +1", "max_price": 220000000, "item_ids": ["1bb6ad13"]},
     {"name": "Master Hextech Ring +2", "max_price": 220000000, "item_ids": ["1cb6ad13"]},
     {"name": "Master Hextech Ring +3", "max_price": 220000000, "item_ids": ["1db6ad13"]},
     {"name": "Master Belt Of Courage Old", "max_price": 50000000, "item_ids": ["8a89d117"]},
     {"name": "Master Belt Of Str Old", "max_price": 1000000, "item_ids": ["738dd117"]},
+    {"name": "Master Belt Of Str +0", "max_price": 1000000, "item_ids": []},
     {"name": "Master Belt Of Dexterity Old", "max_price": 2000000, "item_ids": ["5c91d117"]},
     {"name": "Elarin Ring Old", "max_price": 1000000, "item_ids": ["ab94d117"]},
     {"name": "Fire Ring Old", "max_price": 500000, "item_ids": ["6e2b7a14"]},
@@ -1042,8 +1066,11 @@ ALARM_LIST = [
     {"name": "Frozen Ring Old", "max_price": 500000, "item_ids": ["3f987e14"]},
     {"name": "Frozen Ring +0", "max_price": 1000000, "item_ids": ["cd70b913"]},
     {"name": "Thunder Ring Old", "max_price": 500000, "item_ids": ["10058314"]},
+    {"name": "Thunder Ring +1", "max_price": 50000000, "item_ids": ["bd99b913"]},
+    {"name": "Thunder Ring +2", "max_price": 220000000, "item_ids": ["be99b913"]},
+    {"name": "Thunder Ring +3", "max_price": 220000000, "item_ids": ["bf99b913"]},
     {"name": "Essence Pendant Old", "max_price": 500000, "item_ids": ["17786814"]},
-    {"name": "Essence Pendant +0", "max_price": 12000000, "item_ids": ["247e1413"]},
+    {"name": "Essence Pendant +0", "max_price": 1200000, "item_ids": ["247e1413"]},
     {"name": "Essence Pendant +1", "max_price": 50000000, "item_ids": ["e77e1413"]},
     {"name": "Essence Pendant +2", "max_price": 220000000, "item_ids": ["e87e1413"]},
     {"name": "Essence Pendant +3", "max_price": 220000000, "item_ids": ["e97e1413"]},
@@ -1054,7 +1081,7 @@ ALARM_LIST = [
     {"name": "Holy Pendant +3", "max_price": 220000000, "item_ids": ["f37e1413"]},
     {"name": "Courage Pendant Old", "max_price": 1000000, "item_ids": ["460b6414"]},
     {"name": "Courage Pendant +0", "max_price": 10000000, "item_ids": ["237e1413"]},
-    {"name": "Courage Pendant +1", "max_price": 220000000, "item_ids": ["dd7e1413"]},
+    {"name": "Courage Pendant +1", "max_price": 100000000, "item_ids": ["dd7e1413"]},
     {"name": "Courage Pendant +2", "max_price": 220000000, "item_ids": ["de7e1413"]},
     {"name": "Courage Pendant +3", "max_price": 220000000, "item_ids": ["df7e1413"]},
     {"name": "Elderwood Belt Old", "max_price": 1000000, "item_ids": ["97de8b14"]},
@@ -1086,6 +1113,7 @@ ALARM_LIST = [
     {"name": "Courage Earring +1", "max_price": 220000000, "item_ids": ["017c8012"]},
     {"name": "Courage Earring +2", "max_price": 220000000, "item_ids": ["027c8012"]},
     {"name": "Courage Earring +3", "max_price": 220000000, "item_ids": ["037c8012"]},
+    {"name": "Shadow Earring +0", "max_price": 500000, "item_ids": []},
     {"name": "Shaman Silver Earring +0", "max_price": 50000000, "item_ids": ["7b7b8012"]},
     {"name": "Shaman Silver Earring +1", "max_price": 150000000, "item_ids": ["157c8012"]},
     {"name": "Shaman Silver Earring +2", "max_price": 220000000, "item_ids": ["167c8012"]},
@@ -1101,7 +1129,7 @@ ALARM_LIST = [
     {"name": "Hero Ring +3", "max_price": 220000000, "item_ids": ["5f15ad13"]},
     {"name": "Blue Drake Neck +0", "max_price": 1000000, "item_ids": ["501f1c13"]},
     {"name": "Amulet Of Evil Old", "max_price": 1000000, "item_ids": ["b3851b13"]},
-    {"name": "Amulet Of Evil +0", "max_price": 95000000, "item_ids": ["a6981a13"]},
+    {"name": "Amulet Of Evil +0", "max_price": 10000000, "item_ids": ["a6981a13"]},
     {"name": "Amulet Of Evil +1", "max_price": 220000000, "item_ids": ["7b991a13"]},
     {"name": "Amulet Of Evil +2", "max_price": 220000000, "item_ids": ["7c991a13"]},
     {"name": "Amulet Of Evil +3", "max_price": 220000000, "item_ids": ["7d991a13"]},
@@ -1282,7 +1310,7 @@ ALARM_LIST = [
     {"name": "Warrior Titan Helmet +7", "max_price": 10000000, "item_ids": ["ff18380c", "0919380c"]},
     {"name": "Warrior Titan Helmet +8", "max_price": 220000000, "item_ids": ["0a19380c", "0018380c"]},
     {"name": "Warrior Titan Helmet +9", "max_price": 1000000000, "item_ids": ["0b19380c", "0118380c"]},
-    {"name": "Warrior Titan Helmet +10", "max_price": 10000000003000000000, "item_ids": ["0c19380c", "0218380c"]},
+    {"name": "Warrior Titan Helmet +10", "max_price": 3000000000, "item_ids": ["0c19380c", "0218380c"]},
     {"name": "Warrior Titan Helmet Reb+1", "max_price": 10000000, "item_ids": ["79afd00c"]},
     {"name": "Warrior Titan Helmet Reb+2", "max_price": 10000000, "item_ids": ["7aafd00c"]},
     {"name": "Warrior Titan Helmet Reb+3", "max_price": 40000000, "item_ids": ["7bafd00c"]},
@@ -1358,14 +1386,14 @@ ALARM_LIST = [
     {"name": "Warrior Titan Pads Reb+21", "max_price": 1000000000, "item_ids": ["a5abd00c"]},
     {"name": "Warrior Titan Boots +6", "max_price": 3000000, "item_ids": ["ce20380c", "d820380c"]},
     {"name": "Warrior Titan Boots +7", "max_price": 10000000, "item_ids": ["d920380c", "cf20380c"]},
-    {"name": "Warrior Titan Boots +8", "max_price": 220000000, "item_ids": ["d020380c", "da20380c"]},
+    {"name": "Warrior Titan Boots +8", "max_price": 120000000, "item_ids": ["d020380c", "da20380c"]},
     {"name": "Warrior Titan Boots +9", "max_price": 1000000000, "item_ids": ["db20380c", "d120380c"]},
     {"name": "Warrior Titan Boots +10", "max_price": 1000000000, "item_ids": ["dc20380c", "d220380c"]},
     {"name": "Warrior Titan Boots Reb+1", "max_price": 10000000, "item_ids": ["49b7d00c"]},
     {"name": "Warrior Titan Boots Reb+2", "max_price": 10000000, "item_ids": ["4ab7d00c"]},
     {"name": "Warrior Titan Boots Reb+3", "max_price": 40000000, "item_ids": ["4bb7d00c"]},
     {"name": "Warrior Titan Boots Reb+4", "max_price": 40000000, "item_ids": ["4cb7d00c"]},
-    {"name": "Warrior Titan Boots Reb+5", "max_price": 220000000, "item_ids": ["4db7d00c"]},
+    {"name": "Warrior Titan Boots Reb+5", "max_price": 120000000, "item_ids": ["4db7d00c"]},
     {"name": "Warrior Titan Boots Reb+6", "max_price": 220000000, "item_ids": ["4eb7d00c"]},
     {"name": "Warrior Titan Boots Reb+7", "max_price": 220000000, "item_ids": ["4fb7d00c"]},
     {"name": "Warrior Titan Boots Reb+8", "max_price": 700000000, "item_ids": ["50b7d00c"]},
@@ -1417,10 +1445,10 @@ ALARM_LIST = [
     {"name": "Warrior Elder Armor Boots Reb+3", "max_price": 500000000, "item_ids": ["cbded01e"]},
     {"name": "Warrior Elder Armor Boots Reb+4", "max_price": 1000000000, "item_ids": ["ccded01e"]},
     {"name": "Warrior Elder Armor Boots Reb+5", "max_price": 3000000000, "item_ids": ["cdded01e"]},
-    {"name": "Warrior Elder Armor Helmet +5", "max_price": 100000000, "item_ids": ["7d40381e"]},
-    {"name": "Warrior Elder Armor Helmet +6", "max_price": 100000000, "item_ids": ["7e40381e"]},
-    {"name": "Warrior Elder Armor Helmet +7", "max_price": 220000000, "item_ids": ["7f40381e"]},
-    {"name": "Warrior Elder Armor Helmet +8", "max_price": 220000000, "item_ids": ["8040381e"]},
+    {"name": "Warrior Elder Armor Helmet +5", "max_price": 100000000, "item_ids": ["7d40381e", "8740381e"]},
+    {"name": "Warrior Elder Armor Helmet +6", "max_price": 100000000, "item_ids": ["7e40381e", "8840381e"]},
+    {"name": "Warrior Elder Armor Helmet +7", "max_price": 220000000, "item_ids": ["7f40381e", "8940381e"]},
+    {"name": "Warrior Elder Armor Helmet +8", "max_price": 220000000, "item_ids": ["8040381e", "8a40381e"]},
     {"name": "Warrior Elder Armor Helmet Reb+1", "max_price": 220000000, "item_ids": ["f9d6d01e"]},
     {"name": "Warrior Elder Armor Helmet Reb+2", "max_price": 220000000, "item_ids": ["fad6d01e"]},
     {"name": "Warrior Elder Armor Helmet Reb+3", "max_price": 500000000, "item_ids": ["fbd6d01e"]},
@@ -1430,10 +1458,10 @@ ALARM_LIST = [
     {"name": "Warrior Elder Armor Pauldron +6", "max_price": 100000000, "item_ids": ["ae38381e", "b838381e"]},
     {"name": "Warrior Elder Armor Pauldron +7", "max_price": 220000000, "item_ids": ["b938381e", "af38381e"]},
     {"name": "Warrior Elder Armor Pauldron +8", "max_price": 220000000, "item_ids": ["b038381e", "ba38381e"]},
-    {"name": "Warrior Elder Armor Pants +5", "max_price": 100000000, "item_ids": ["953c381e"]},
-    {"name": "Warrior Elder Armor Pants +6", "max_price": 100000000, "item_ids": ["963c381e"]},
-    {"name": "Warrior Elder Armor Pants +7", "max_price": 220000000, "item_ids": ["973c381e"]},
-    {"name": "Warrior Elder Armor Pants +8", "max_price": 220000000, "item_ids": ["983c381e"]},
+    {"name": "Warrior Elder Armor Pants +5", "max_price": 100000000, "item_ids": ["953c381e", "9f3c381e"]},
+    {"name": "Warrior Elder Armor Pants +6", "max_price": 100000000, "item_ids": ["963c381e", "a03c381e"]},
+    {"name": "Warrior Elder Armor Pants +7", "max_price": 220000000, "item_ids": ["a13c381e", "973c381e"]},
+    {"name": "Warrior Elder Armor Pants +8", "max_price": 220000000, "item_ids": ["983c381e", "a23c381e"]},
     {"name": "Warrior Elder Armor Gauntlets +5", "max_price": 100000000, "item_ids": ["6f44381e", "6544381e"]},
     {"name": "Warrior Elder Armor Gauntlets +6", "max_price": 100000000, "item_ids": ["7044381e", "6644381e"]},
     {"name": "Warrior Elder Armor Gauntlets +7", "max_price": 220000000, "item_ids": ["7144381e", "6744381e"]},
@@ -1747,12 +1775,12 @@ ALARM_LIST = [
     {"name": "Rogue Elder Armor Pads +6", "max_price": 100000000, "item_ids": ["96969a20", "94989a20"]},
     {"name": "Rogue Elder Armor Pads +7", "max_price": 220000000, "item_ids": ["97969a20", "95989a20"]},
     {"name": "Rogue Elder Armor Pads +8", "max_price": 220000000, "item_ids": ["98969a20", "96989a20"]},
-    {"name": "Priest Holy Titan Helmet +5", "max_price": 5000000, "item_ids": ["31110c11"]},
-    {"name": "Priest Holy Titan Helmet +6", "max_price": 10000000, "item_ids": ["32110c11"]},
+    {"name": "Priest Holy Titan Helmet +5", "max_price": 5000000, "item_ids": ["31110c11", "3d0f0c11"]},
+    {"name": "Priest Holy Titan Helmet +6", "max_price": 10000000, "item_ids": ["3e0f0c11", "32110c11"]},
     {"name": "Priest Holy Titan Helmet +7", "max_price": 30000000, "item_ids": ["33110c11"]},
-    {"name": "Priest Holy Titan Helmet +8", "max_price": 220000000, "item_ids": ["34110c11"]},
-    {"name": "Priest Holy Titan Helmet +9", "max_price": 5000000000, "item_ids": ["35110c11"]},
-    {"name": "Priest Holy Titan Helmet +10", "max_price": 5000000000, "item_ids": ["36110c11"]},
+    {"name": "Priest Holy Titan Helmet +8", "max_price": 220000000, "item_ids": ["34110c11", "400f0c11"]},
+    {"name": "Priest Holy Titan Helmet +9", "max_price": 5000000000, "item_ids": ["35110c11", "410f0c11"]},
+    {"name": "Priest Holy Titan Helmet +10", "max_price": 5000000000, "item_ids": ["36110c11", "420f0c11"]},
     {"name": "Priest Holy Titan Helmet Reb+1", "max_price": 30000000, "item_ids": ["d7a5a411"]},
     {"name": "Priest Holy Titan Helmet Reb+2", "max_price": 30000000, "item_ids": ["d8a5a411"]},
     {"name": "Priest Holy Titan Helmet Reb+3", "max_price": 100000000, "item_ids": ["d9a5a411"]},
@@ -1828,12 +1856,12 @@ ALARM_LIST = [
     {"name": "Priest Holy Titan Pads Reb+19", "max_price": 5000000000, "item_ids": ["01a1a411"]},
     {"name": "Priest Holy Titan Pads Reb+20", "max_price": 5000000000, "item_ids": ["02a1a411"]},
     {"name": "Priest Holy Titan Pads Reb+21", "max_price": 5000000000, "item_ids": ["03a1a411"]},
-    {"name": "Priest Holy Titan Boots +5", "max_price": 5000000, "item_ids": ["01190c11", "3d0f0c11"]},
-    {"name": "Priest Holy Titan Boots +6", "max_price": 10000000, "item_ids": ["3e0f0c11", "02190c11"]},
+    {"name": "Priest Holy Titan Boots +5", "max_price": 5000000, "item_ids": ["01190c11"]},
+    {"name": "Priest Holy Titan Boots +6", "max_price": 10000000, "item_ids": ["02190c11"]},
     {"name": "Priest Holy Titan Boots +7", "max_price": 30000000, "item_ids": ["03190c11", "3f0f0c11"]},
-    {"name": "Priest Holy Titan Boots +8", "max_price": 220000000, "item_ids": ["04190c11", "400f0c11"]},
-    {"name": "Priest Holy Titan Boots +9", "max_price": 5000000000, "item_ids": ["05190c11", "410f0c11"]},
-    {"name": "Priest Holy Titan Boots +10", "max_price": 5000000000, "item_ids": ["06190c11", "420f0c11"]},
+    {"name": "Priest Holy Titan Boots +8", "max_price": 220000000, "item_ids": ["04190c11"]},
+    {"name": "Priest Holy Titan Boots +9", "max_price": 5000000000, "item_ids": ["05190c11"]},
+    {"name": "Priest Holy Titan Boots +10", "max_price": 5000000000, "item_ids": ["06190c11"]},
     {"name": "Priest Holy Titan Boots Reb+1", "max_price": 30000000, "item_ids": ["a7ada411"]},
     {"name": "Priest Holy Titan Boots Reb+2", "max_price": 30000000, "item_ids": ["a8ada411"]},
     {"name": "Priest Holy Titan Boots Reb+3", "max_price": 100000000, "item_ids": ["a9ada411"]},
@@ -1855,12 +1883,12 @@ ALARM_LIST = [
     {"name": "Priest Holy Titan Boots Reb+19", "max_price": 5000000000, "item_ids": ["b9ada411"]},
     {"name": "Priest Holy Titan Boots Reb+20", "max_price": 5000000000, "item_ids": ["baada411"]},
     {"name": "Priest Holy Titan Boots Reb+21", "max_price": 5000000000, "item_ids": ["bbada411"]},
-    {"name": "Priest Holy Titan Gauntlets +5", "max_price": 5000000, "item_ids": ["25130c11"]},
-    {"name": "Priest Holy Titan Gauntlets +6", "max_price": 10000000, "item_ids": ["26130c11"]},
-    {"name": "Priest Holy Titan Gauntlets +7", "max_price": 30000000, "item_ids": ["27130c11"]},
-    {"name": "Priest Holy Titan Gauntlets +8", "max_price": 220000000, "item_ids": ["28130c11"]},
-    {"name": "Priest Holy Titan Gauntlets +9", "max_price": 5000000000, "item_ids": ["29130c11"]},
-    {"name": "Priest Holy Titan Gauntlets +10", "max_price": 5000000000, "item_ids": ["2a130c11"]},
+    {"name": "Priest Holy Titan Gauntlets +5", "max_price": 5000000, "item_ids": ["25130c11", "19150c11"]},
+    {"name": "Priest Holy Titan Gauntlets +6", "max_price": 10000000, "item_ids": ["26130c11", "1a150c11"]},
+    {"name": "Priest Holy Titan Gauntlets +7", "max_price": 30000000, "item_ids": ["1b150c11", "27130c11"]},
+    {"name": "Priest Holy Titan Gauntlets +8", "max_price": 220000000, "item_ids": ["28130c11", "1c150c11"]},
+    {"name": "Priest Holy Titan Gauntlets +9", "max_price": 5000000000, "item_ids": ["29130c11", "1d150c11"]},
+    {"name": "Priest Holy Titan Gauntlets +10", "max_price": 5000000000, "item_ids": ["2a130c11", "1e150c11"]},
     {"name": "Priest Holy Titan Gauntlets Reb+1", "max_price": 30000000, "item_ids": ["bfa9a411"]},
     {"name": "Priest Holy Titan Gauntlets Reb+2", "max_price": 30000000, "item_ids": ["c0a9a411"]},
     {"name": "Priest Holy Titan Gauntlets Reb+3", "max_price": 100000000, "item_ids": ["c1a9a411"]},
@@ -1882,10 +1910,10 @@ ALARM_LIST = [
     {"name": "Priest Holy Titan Gauntlets Reb+19", "max_price": 5000000000, "item_ids": ["d1a9a411"]},
     {"name": "Priest Holy Titan Gauntlets Reb+20", "max_price": 5000000000, "item_ids": ["d2a9a411"]},
     {"name": "Priest Holy Titan Gauntlets Reb+21", "max_price": 5000000000, "item_ids": ["d3a9a411"]},
-    {"name": "Priest Titan Helmet +7", "max_price": 10000000, "item_ids": ["ffccfc10", "f3cefc10"]},
-    {"name": "Priest Titan Helmet +8", "max_price": 220000000, "item_ids": ["f4cefc10", "00ccfc10"]},
-    {"name": "Priest Titan Helmet +9", "max_price": 2000000000, "item_ids": ["f5cefc10", "01ccfc10"]},
-    {"name": "Priest Titan Helmet +10", "max_price": 5000000000, "item_ids": ["f6cefc10", "02ccfc10"]},
+    {"name": "Priest Titan Helmet +7", "max_price": 10000000, "item_ids": ["ffccfc10", "f3cefc10", "09cdfc10"]},
+    {"name": "Priest Titan Helmet +8", "max_price": 220000000, "item_ids": ["f4cefc10", "00ccfc10", "0acdfc10"]},
+    {"name": "Priest Titan Helmet +9", "max_price": 2000000000, "item_ids": ["f5cefc10", "01ccfc10", "0bcdfc10"]},
+    {"name": "Priest Titan Helmet +10", "max_price": 5000000000, "item_ids": ["f6cefc10", "02ccfc10", "0ccdfc10"]},
     {"name": "Priest Titan Helmet Reb+1", "max_price": 10000000, "item_ids": ["97639511"]},
     {"name": "Priest Titan Helmet Reb+2", "max_price": 10000000, "item_ids": ["98639511"]},
     {"name": "Priest Titan Helmet Reb+3", "max_price": 40000000, "item_ids": ["99639511"]},
@@ -1914,48 +1942,48 @@ ALARM_LIST = [
     {"name": "Priest Titan Pads +7", "max_price": 10000000, "item_ids": ["17c9fc10", "0bcbfc10"]},
     {"name": "Priest Titan Pads +8", "max_price": 220000000, "item_ids": ["18c9fc10", "0ccbfc10"]},
     {"name": "Priest Titan Pads +10", "max_price": 5000000000, "item_ids": ["1ac9fc10", "0ecbfc10"]},
-    {"name": "Priest Titan Pads Reb+1", "max_price": 10000000, "item_ids": ["af5f9511"]},
-    {"name": "Priest Titan Pads Reb+2", "max_price": 10000000, "item_ids": ["b05f9511"]},
-    {"name": "Priest Titan Pads Reb+3", "max_price": 40000000, "item_ids": ["b15f9511"]},
-    {"name": "Priest Titan Pads Reb+4", "max_price": 40000000, "item_ids": ["b25f9511"]},
-    {"name": "Priest Titan Pads Reb+5", "max_price": 220000000, "item_ids": ["b35f9511"]},
-    {"name": "Priest Titan Pads Reb+6", "max_price": 250000000, "item_ids": ["b45f9511"]},
-    {"name": "Priest Titan Pads Reb+7", "max_price": 250000000, "item_ids": ["b55f9511"]},
-    {"name": "Priest Titan Pads Reb+8", "max_price": 250000000, "item_ids": ["b65f9511"]},
-    {"name": "Priest Titan Pads Reb+9", "max_price": 750000000, "item_ids": ["b75f9511"]},
-    {"name": "Priest Titan Pads Reb+10", "max_price": 750000000, "item_ids": ["b85f9511"]},
-    {"name": "Priest Titan Pads Reb+13", "max_price": 4000000000, "item_ids": ["bb5f9511"]},
-    {"name": "Priest Titan Pads Reb+14", "max_price": 5000000000, "item_ids": ["bc5f9511"]},
-    {"name": "Priest Titan Pads Reb+15", "max_price": 5000000000, "item_ids": ["bd5f9511"]},
-    {"name": "Priest Titan Pads Reb+16", "max_price": 5000000000, "item_ids": ["be5f9511"]},
-    {"name": "Priest Titan Pads Reb+17", "max_price": 5000000000, "item_ids": ["bf5f9511"]},
-    {"name": "Priest Titan Pads Reb+18", "max_price": 5000000000, "item_ids": ["c05f9511"]},
-    {"name": "Priest Titan Pads Reb+19", "max_price": 5000000000, "item_ids": ["c15f9511"]},
-    {"name": "Priest Titan Pads Reb+20", "max_price": 5000000000, "item_ids": ["c25f9511"]},
-    {"name": "Priest Titan Pads Reb+21", "max_price": 5000000000, "item_ids": ["c35f9511"]},
-    {"name": "Priest Titan Boots +6", "max_price": 3000000, "item_ids": ["c2d6fc10"]},
-    {"name": "Priest Titan Boots +7", "max_price": 10000000, "item_ids": ["c3d6fc10"]},
-    {"name": "Priest Titan Boots +8", "max_price": 220000000, "item_ids": ["c4d6fc10"]},
-    {"name": "Priest Titan Boots +10", "max_price": 5000000000, "item_ids": ["c6d6fc10"]},
-    {"name": "Priest Titan Boots Reb+1", "max_price": 10000000, "item_ids": ["676b9511"]},
-    {"name": "Priest Titan Boots Reb+2", "max_price": 10000000, "item_ids": ["686b9511"]},
-    {"name": "Priest Titan Boots Reb+3", "max_price": 40000000, "item_ids": ["696b9511"]},
-    {"name": "Priest Titan Boots Reb+4", "max_price": 40000000, "item_ids": ["6a6b9511"]},
-    {"name": "Priest Titan Boots Reb+5", "max_price": 220000000, "item_ids": ["6b6b9511"]},
-    {"name": "Priest Titan Boots Reb+6", "max_price": 250000000, "item_ids": ["6c6b9511"]},
-    {"name": "Priest Titan Boots Reb+7", "max_price": 250000000, "item_ids": ["6d6b9511"]},
-    {"name": "Priest Titan Boots Reb+8", "max_price": 250000000, "item_ids": ["6e6b9511"]},
-    {"name": "Priest Titan Boots Reb+9", "max_price": 750000000, "item_ids": ["6f6b9511"]},
-    {"name": "Priest Titan Boots Reb+10", "max_price": 750000000, "item_ids": ["706b9511"]},
-    {"name": "Priest Titan Boots Reb+13", "max_price": 4000000000, "item_ids": ["736b9511"]},
-    {"name": "Priest Titan Boots Reb+14", "max_price": 5000000000, "item_ids": ["746b9511"]},
-    {"name": "Priest Titan Boots Reb+15", "max_price": 5000000000, "item_ids": ["756b9511"]},
-    {"name": "Priest Titan Boots Reb+16", "max_price": 5000000000, "item_ids": ["766b9511"]},
-    {"name": "Priest Titan Boots Reb+17", "max_price": 5000000000, "item_ids": ["776b9511"]},
-    {"name": "Priest Titan Boots Reb+18", "max_price": 5000000000, "item_ids": ["786b9511"]},
-    {"name": "Priest Titan Boots Reb+19", "max_price": 5000000000, "item_ids": ["796b9511"]},
-    {"name": "Priest Titan Boots Reb+20", "max_price": 5000000000, "item_ids": ["7a6b9511"]},
-    {"name": "Priest Titan Boots Reb+21", "max_price": 5000000000, "item_ids": ["7b6b9511"]},
+    {"name": "Priest Titan Pads Reb+1", "max_price": 10000000, "item_ids": ["af5f9511", "915f9511"]},
+    {"name": "Priest Titan Pads Reb+2", "max_price": 10000000, "item_ids": ["b05f9511", "925f9511"]},
+    {"name": "Priest Titan Pads Reb+3", "max_price": 40000000, "item_ids": ["b15f9511", "935f9511"]},
+    {"name": "Priest Titan Pads Reb+4", "max_price": 40000000, "item_ids": ["b25f9511", "945f9511"]},
+    {"name": "Priest Titan Pads Reb+5", "max_price": 220000000, "item_ids": ["955f9511", "b35f9511"]},
+    {"name": "Priest Titan Pads Reb+6", "max_price": 250000000, "item_ids": ["b45f9511", "965f9511"]},
+    {"name": "Priest Titan Pads Reb+7", "max_price": 250000000, "item_ids": ["b55f9511", "975f9511"]},
+    {"name": "Priest Titan Pads Reb+8", "max_price": 250000000, "item_ids": ["b65f9511", "985f9511"]},
+    {"name": "Priest Titan Pads Reb+9", "max_price": 750000000, "item_ids": ["b75f9511", "995f9511"]},
+    {"name": "Priest Titan Pads Reb+10", "max_price": 750000000, "item_ids": ["b85f9511", "9a5f9511"]},
+    {"name": "Priest Titan Pads Reb+13", "max_price": 4000000000, "item_ids": ["bb5f9511", "9d5f9511"]},
+    {"name": "Priest Titan Pads Reb+14", "max_price": 5000000000, "item_ids": ["bc5f9511", "9e5f9511"]},
+    {"name": "Priest Titan Pads Reb+15", "max_price": 5000000000, "item_ids": ["bd5f9511", "9f5f9511"]},
+    {"name": "Priest Titan Pads Reb+16", "max_price": 5000000000, "item_ids": ["be5f9511", "a05f9511"]},
+    {"name": "Priest Titan Pads Reb+17", "max_price": 5000000000, "item_ids": ["bf5f9511", "a15f9511"]},
+    {"name": "Priest Titan Pads Reb+18", "max_price": 5000000000, "item_ids": ["c05f9511", "a25f9511"]},
+    {"name": "Priest Titan Pads Reb+19", "max_price": 5000000000, "item_ids": ["c15f9511", "a35f9511"]},
+    {"name": "Priest Titan Pads Reb+20", "max_price": 5000000000, "item_ids": ["c25f9511", "a45f9511"]},
+    {"name": "Priest Titan Pads Reb+21", "max_price": 5000000000, "item_ids": ["c35f9511", "a55f9511"]},
+    {"name": "Priest Titan Boots +6", "max_price": 3000000, "item_ids": ["c2d6fc10", "d8d4fc10"]},
+    {"name": "Priest Titan Boots +7", "max_price": 10000000, "item_ids": ["c3d6fc10", "d9d4fc10"]},
+    {"name": "Priest Titan Boots +8", "max_price": 220000000, "item_ids": ["dad4fc10", "c4d6fc10"]},
+    {"name": "Priest Titan Boots +10", "max_price": 5000000000, "item_ids": ["c6d6fc10", "dcd4fc10"]},
+    {"name": "Priest Titan Boots Reb+1", "max_price": 10000000, "item_ids": ["676b9511", "496b9511"]},
+    {"name": "Priest Titan Boots Reb+2", "max_price": 10000000, "item_ids": ["686b9511", "4a6b9511"]},
+    {"name": "Priest Titan Boots Reb+3", "max_price": 40000000, "item_ids": ["696b9511", "4b6b9511"]},
+    {"name": "Priest Titan Boots Reb+4", "max_price": 40000000, "item_ids": ["6a6b9511", "4c6b9511"]},
+    {"name": "Priest Titan Boots Reb+5", "max_price": 220000000, "item_ids": ["6b6b9511", "4d6b9511"]},
+    {"name": "Priest Titan Boots Reb+6", "max_price": 250000000, "item_ids": ["6c6b9511", "4e6b9511"]},
+    {"name": "Priest Titan Boots Reb+7", "max_price": 250000000, "item_ids": ["6d6b9511", "4f6b9511"]},
+    {"name": "Priest Titan Boots Reb+8", "max_price": 250000000, "item_ids": ["6e6b9511", "506b9511"]},
+    {"name": "Priest Titan Boots Reb+9", "max_price": 750000000, "item_ids": ["6f6b9511", "516b9511"]},
+    {"name": "Priest Titan Boots Reb+10", "max_price": 750000000, "item_ids": ["706b9511", "526b9511"]},
+    {"name": "Priest Titan Boots Reb+13", "max_price": 4000000000, "item_ids": ["736b9511", "556b9511"]},
+    {"name": "Priest Titan Boots Reb+14", "max_price": 5000000000, "item_ids": ["746b9511", "566b9511"]},
+    {"name": "Priest Titan Boots Reb+15", "max_price": 5000000000, "item_ids": ["756b9511", "576b9511"]},
+    {"name": "Priest Titan Boots Reb+16", "max_price": 5000000000, "item_ids": ["766b9511", "586b9511"]},
+    {"name": "Priest Titan Boots Reb+17", "max_price": 5000000000, "item_ids": ["776b9511", "596b9511"]},
+    {"name": "Priest Titan Boots Reb+18", "max_price": 5000000000, "item_ids": ["786b9511", "5a6b9511"]},
+    {"name": "Priest Titan Boots Reb+19", "max_price": 5000000000, "item_ids": ["796b9511", "5b6b9511"]},
+    {"name": "Priest Titan Boots Reb+20", "max_price": 5000000000, "item_ids": ["7a6b9511", "5c6b9511"]},
+    {"name": "Priest Titan Boots Reb+21", "max_price": 5000000000, "item_ids": ["7b6b9511", "5d6b9511"]},
     {"name": "Priest Titan Gauntlets +6", "max_price": 3000000, "item_ids": ["e6d0fc10"]},
     {"name": "Priest Titan Gauntlets +7", "max_price": 10000000, "item_ids": ["e7d0fc10"]},
     {"name": "Priest Titan Gauntlets +8", "max_price": 220000000, "item_ids": ["e8d0fc10"]},
@@ -2014,6 +2042,7 @@ ALARM_LIST = [
     {"name": "Priest Elder Armor Helmet +6", "max_price": 50000000, "item_ids": ["7ef4fc22", "72f6fc22"]},
     {"name": "Priest Elder Armor Helmet +7", "max_price": 220000000, "item_ids": ["73f6fc22", "7ff4fc22"]},
     {"name": "Priest Elder Armor Helmet +8", "max_price": 220000000, "item_ids": ["80f4fc22", "74f6fc22"]},
+    {"name": "Priest Elder Armor Helmet Reb+1", "max_price": 220000000, "item_ids": []},
     {"name": "Priest Elder Armor Pauldron +5", "max_price": 50000000, "item_ids": ["adecfc22", "a1eefc22"]},
     {"name": "Priest Elder Armor Pauldron +6", "max_price": 50000000, "item_ids": ["aeecfc22", "a2eefc22"]},
     {"name": "Priest Elder Armor Pauldron +7", "max_price": 220000000, "item_ids": ["a3eefc22", "afecfc22"]},
@@ -2101,7 +2130,7 @@ ALARM_LIST = [
     {"name": "Mage Holy Titan Gauntlets Reb+7", "max_price": 220000000, "item_ids": ["c57c7310"]},
     {"name": "Mage Holy Titan Gauntlets Reb+8", "max_price": 500000000, "item_ids": ["c67c7310"]},
     {"name": "Mage Holy Titan Gauntlets Reb+9", "max_price": 500000000, "item_ids": ["c77c7310"]},
-    {"name": "Mage Holy Titan Gauntlets Reb+10", "max_price": 1000000000500000000, "item_ids": ["c87c7310"]},
+    {"name": "Mage Holy Titan Gauntlets Reb+10", "max_price": 1000000000, "item_ids": ["c87c7310"]},
     {"name": "Mage Holy Titan Gauntlets Reb+11", "max_price": 2000000000, "item_ids": ["c97c7310"]},
     {"name": "Mage Holy Titan Gauntlets Reb+12", "max_price": 2000000000, "item_ids": ["ca7c7310"]},
     {"name": "Mage Holy Titan Gauntlets Reb+13", "max_price": 2000000000, "item_ids": ["cb7c7310"]},
@@ -2232,7 +2261,7 @@ ALARM_LIST = [
     {"name": "Mage Fabric Boots +8", "max_price": 15000000, "item_ids": ["e2a08e0f", "d09e8e0f", "c4a08e0f"]},
     {"name": "Mage Fabric Boots +9", "max_price": 220000000, "item_ids": ["e3a08e0f", "d19e8e0f", "c5a08e0f"]},
     {"name": "Mage Fabric Boots +10", "max_price": 5000000000, "item_ids": ["e4a08e0f", "d29e8e0f", "c6a08e0f"]},
-    {"name": "Mage Fabric Gauntlets +7", "max_price": 1000000, "item_ids": ["db9c8e0f", "f99c8e0f"]},
+    {"name": "Mage Fabric Gauntlets +7", "max_price": 999998, "item_ids": ["db9c8e0f", "f99c8e0f"]},
     {"name": "Mage Fabric Gauntlets +8", "max_price": 15000000, "item_ids": ["dc9c8e0f", "fa9c8e0f"]},
     {"name": "Mage Fabric Gauntlets +9", "max_price": 220000000, "item_ids": ["dd9c8e0f", "fb9c8e0f"]},
     {"name": "Mage Fabric Gauntlets +10", "max_price": 5000000000, "item_ids": ["de9c8e0f", "fc9c8e0f"]},
@@ -2248,6 +2277,11 @@ ALARM_LIST = [
     {"name": "Mage Elder Armor Pauldron +6", "max_price": 50000000, "item_ids": ["a2c1cb21", "aebfcb21"]},
     {"name": "Mage Elder Armor Pauldron +7", "max_price": 220000000, "item_ids": ["a3c1cb21", "afbfcb21"]},
     {"name": "Mage Elder Armor Pauldron +8", "max_price": 220000000, "item_ids": ["a4c1cb21", "b0bfcb21"]},
+    {"name": "Mage Elder Armor Pauldron Reb+1", "max_price": 220000000, "item_ids": []},
+    {"name": "Mage Elder Armor Pauldron Reb+2", "max_price": 220000000, "item_ids": []},
+    {"name": "Mage Elder Armor Pauldron Reb+3", "max_price": 300000000, "item_ids": []},
+    {"name": "Mage Elder Armor Pauldron Reb+4", "max_price": 1000000000, "item_ids": []},
+    {"name": "Mage Elder Armor Pauldron Reb+5", "max_price": 5000000000, "item_ids": []},
     {"name": "Mage Elder Armor Pads +5", "max_price": 50000000, "item_ids": ["95c3cb21"]},
     {"name": "Mage Elder Armor Pads +6", "max_price": 50000000, "item_ids": ["96c3cb21"]},
     {"name": "Mage Elder Armor Pads +7", "max_price": 220000000, "item_ids": ["97c3cb21"]},
@@ -2261,6 +2295,8 @@ ALARM_LIST = [
     {"name": "Middle Mastery CR BOX +0", "max_price": 5000000, "item_ids": ["70f87206"]},
     {"name": "High Mastery CR BOX +0", "max_price": 5000000, "item_ids": ["58fc7206"]},
     {"name": "NOWA BOX +0", "max_price": 10000000, "item_ids": ["68b50d0c"]},
+    {"name": "Elder Armor Piece Box +0", "max_price": 100000000, "item_ids": []},
+    {"name": "Diamond Box +0", "max_price": 5000000, "item_ids": []},
     {"name": "Red Chest +0", "max_price": 3000000, "item_ids": ["506e9916"]},
     {"name": "Green Chest +0", "max_price": 4000000, "item_ids": ["38729916"]},
     {"name": "Blue Chest +0", "max_price": 5000000, "item_ids": ["20769916"]},
@@ -2277,6 +2313,7 @@ ALARM_LIST = [
     {"name": "Blue Gem LWL 3 +0", "max_price": 1000000, "item_ids": ["98b43217"]},
     {"name": "Green Gem LVL 2 +0", "max_price": 1000000, "item_ids": ["68bc3217"]},
     {"name": "Blue Spring Box +0", "max_price": 5000000, "item_ids": ["58e6391e"]},
+    {"name": "Red Spring Box +0", "max_price": 5000000, "item_ids": []},
     {"name": "High CR BOX +0", "max_price": 3000000, "item_ids": ["a0f7491e"]},
     {"name": "Low CR BOX +0", "max_price": 3000000, "item_ids": ["b8704a1e"]},
     {"name": "Middle CR BOX +0", "max_price": 3000000, "item_ids": ["78344b30"]},
@@ -2289,6 +2326,7 @@ ALARM_LIST = [
     {"name": "Lucky Tried +0", "max_price": 25000000, "item_ids": ["284ab929"]},
     {"name": "Storem Mp Pot +0", "max_price": 6000000, "item_ids": ["c0c53517"]},
     {"name": "Character Seal Scrool +0", "max_price": 220000000, "item_ids": ["98b9b02f"]},
+    {"name": "Wings Voucher Coupon +0", "max_price": 30000000, "item_ids": []},
     {"name": "Piece of +5 Rogue Elder Armor 0", "max_price": 50000000, "item_ids": ["4050950c"]},
     {"name": "Piece of +5 Warrior Elder Armor 0", "max_price": 50000000, "item_ids": ["584c950c"]},
     {"name": "Piece of +5 Priest Elder Armor 0", "max_price": 20000000, "item_ids": ["1058950c"]},
@@ -2300,96 +2338,143 @@ ALARM_LIST = [
     {"name": "+9 Holy Upgrade Scrool +0", "max_price": 5000000000, "item_ids": ["28aef70e"]},
     {"name": "+8 Holy Upgrade Scrool +0", "max_price": 5000000000, "item_ids": ["40aaf70e"]},
     {"name": "Divine Upgrade Scrool +7 +0", "max_price": 1000000000, "item_ids": ["10b2f70e"]},
-    {"name": "Gold Rod +1", "max_price": 100000000, "item_ids": ["81b9670b"]},
-    {"name": "Gold Rod +2", "max_price": 100000000, "item_ids": ["81b9670b"]},
-    {"name": "Gold Rod +3", "max_price": 300000000, "item_ids": ["81b9670b"]},
-    {"name": "Gold Rod +4", "max_price": 300000000, "item_ids": ["81b9670b"]},
-    {"name": "Gold Rod +5", "max_price": 300000000, "item_ids": ["81b9670b"]},
-    {"name": "Gold Rod +6", "max_price": 300000000, "item_ids": ["81b9670b"]},
-    {"name": "Gold Rod +7", "max_price": 300000000, "item_ids": ["81b9670b"]},
-    {"name": "Gold Rod +8", "max_price": 300000000, "item_ids": ["81b9670b"]},
-    {"name": "Gold Rod +9", "max_price": 500000000, "item_ids": ["81b9670b"]},
-    {"name": "Gold Rod +10", "max_price": 500000000, "item_ids": ["81b9670b"]},
-    {"name": "Gold Rod +11", "max_price": 500000000, "item_ids": ["81b9670b"]},
-    {"name": "Gold Rod +12", "max_price": 750000000, "item_ids": ["81b9670b"]},
-    {"name": "Gold Rod +13", "max_price": 750000000, "item_ids": ["81b9670b"]},
-    {"name": "Gold Rod +14", "max_price": 750000000, "item_ids": ["81b9670b"]},
-    {"name": "Gold Rod +15", "max_price": 900000000, "item_ids": ["81b9670b"]},
-    {"name": "Gold Rod +16", "max_price": 900000000, "item_ids": ["81b9670b"]},
-    {"name": "Gold Rod +17", "max_price": 900000000, "item_ids": ["81b9670b"]},
-    {"name": "Gold Rod +18", "max_price": 900000000, "item_ids": ["81b9670b"]},
-    {"name": "Gold Rod +19", "max_price": 900000000, "item_ids": ["81b9670b"]},
-    {"name": "Gold Rod +20", "max_price": 900000000, "item_ids": ["81b9670b"]},
-    {"name": "Gold Rod +21", "max_price": 1500000000, "item_ids": ["81b9670b"]},
-    {"name": "Gold Rod +22", "max_price": 1500000000, "item_ids": ["81b9670b"]},
-    {"name": "Gold Rod +23", "max_price": 5000000000, "item_ids": ["81b9670b"]},
-    {"name": "Gold Rod +24", "max_price": 5000000000, "item_ids": ["81b9670b"]},
-    {"name": "Gold Rod +25", "max_price": 5000000000, "item_ids": ["81b9670b"]},
-    {"name": "Gold Rod +26", "max_price": 5000000000, "item_ids": ["81b9670b"]},
-    {"name": "Gold Rod +27", "max_price": 5000000000, "item_ids": ["81b9670b"]},
-    {"name": "Gold Rod +28", "max_price": 5000000000, "item_ids": ["81b9670b"]},
-    {"name": "Gold Rod +29", "max_price": 5000000000, "item_ids": ["81b9670b"]},
-    {"name": "Gold Rod +30", "max_price": 5000000000, "item_ids": ["81b9670b"]},
+    {"name": "Gold Rod +1", "max_price": 100000000, "item_ids": []},
+    {"name": "Gold Rod +2", "max_price": 100000000, "item_ids": []},
+    {"name": "Gold Rod +3", "max_price": 300000000, "item_ids": []},
+    {"name": "Gold Rod +4", "max_price": 300000000, "item_ids": []},
+    {"name": "Gold Rod +5", "max_price": 300000000, "item_ids": []},
+    {"name": "Gold Rod +6", "max_price": 300000000, "item_ids": []},
+    {"name": "Gold Rod +7", "max_price": 300000000, "item_ids": []},
+    {"name": "Gold Rod +8", "max_price": 300000000, "item_ids": []},
+    {"name": "Gold Rod +9", "max_price": 500000000, "item_ids": []},
+    {"name": "Gold Rod +10", "max_price": 500000000, "item_ids": []},
+    {"name": "Gold Rod +11", "max_price": 500000000, "item_ids": []},
+    {"name": "Gold Rod +12", "max_price": 750000000, "item_ids": []},
+    {"name": "Gold Rod +13", "max_price": 750000000, "item_ids": []},
+    {"name": "Gold Rod +14", "max_price": 750000000, "item_ids": []},
+    {"name": "Gold Rod +15", "max_price": 900000000, "item_ids": []},
+    {"name": "Gold Rod +16", "max_price": 900000000, "item_ids": []},
+    {"name": "Gold Rod +17", "max_price": 900000000, "item_ids": []},
+    {"name": "Gold Rod +18", "max_price": 900000000, "item_ids": []},
+    {"name": "Gold Rod +19", "max_price": 900000000, "item_ids": []},
+    {"name": "Gold Rod +20", "max_price": 900000000, "item_ids": []},
+    {"name": "Gold Rod +21", "max_price": 1500000000, "item_ids": []},
+    {"name": "Gold Rod +22", "max_price": 1500000000, "item_ids": []},
+    {"name": "Gold Rod +23", "max_price": 5000000000, "item_ids": []},
+    {"name": "Gold Rod +24", "max_price": 5000000000, "item_ids": []},
+    {"name": "Gold Rod +25", "max_price": 5000000000, "item_ids": []},
+    {"name": "Gold Rod +26", "max_price": 5000000000, "item_ids": []},
+    {"name": "Gold Rod +27", "max_price": 5000000000, "item_ids": []},
+    {"name": "Gold Rod +28", "max_price": 5000000000, "item_ids": []},
+    {"name": "Gold Rod +29", "max_price": 5000000000, "item_ids": []},
+    {"name": "Gold Rod +30", "max_price": 5000000000, "item_ids": []},
+    {"name": "Party Monster Stone +1", "max_price": 10000000, "item_ids": ["f8b8e630"]},
+    {"name": "Silver Token +1", "max_price": 50000, "item_ids": ["58a9e630"]},
+    {"name": "Gold Token +1", "max_price": 1000000, "item_ids": ["40ade630"]},
+    {"name": "Rune Box 1", "max_price": 8000000, "item_ids": ["28b1e630"]},
+    {"name": "STR Character Rune +1", "max_price": 50000000, "item_ids": ["2155361d"]},
+    {"name": "STR Character Rune +2", "max_price": 150000000, "item_ids": ["2255361d"]},
+    {"name": "STR Character Rune +3", "max_price": 350000000, "item_ids": ["2355361d"]},
+    {"name": "STR Character Rune +4", "max_price": 800000000, "item_ids": ["2455361d"]},
+    {"name": "STR Character Rune +5", "max_price": 1500000000, "item_ids": ["2555361d"]},
+    {"name": "STR Character Rune +6", "max_price": 2500000000, "item_ids": ["2655361d"]},
+    {"name": "STR Character Rune +7", "max_price": 2520000000, "item_ids": ["2755361d"]},
+    {"name": "STR Character Rune +8", "max_price": 2500000000, "item_ids": ["2855361d"]},
+    {"name": "STR Character Rune +9", "max_price": 5000000000, "item_ids": ["2955361d"]},
+    {"name": "STR Character Rune +10", "max_price": 5000000000, "item_ids": ["2a55361d"]},
+    {"name": "All Class Atack Character Rune +1", "max_price": 100000000, "item_ids": ["1156361d"]},
+    {"name": "All Class Atack Character Rune +2", "max_price": 250000000, "item_ids": ["1256361d"]},
+    {"name": "All Class Atack Character Rune +3", "max_price": 250000000, "item_ids": ["1356361d"]},
+    {"name": "All Class Atack Character Rune +4", "max_price": 500000000, "item_ids": ["1456361d"]},
+    {"name": "All Class Atack Character Rune +5", "max_price": 1000000000, "item_ids": ["1556361d"]},
+    {"name": "All Class Atack Character Rune +6", "max_price": 2500000000, "item_ids": ["1656361d"]},
+    {"name": "All Class Atack Character Rune +7", "max_price": 2500000000, "item_ids": ["1756361d"]},
+    {"name": "All Class Atack Character Rune +8", "max_price": 5000000000, "item_ids": ["1856361d"]},
+    {"name": "All Class Atack Character Rune +9", "max_price": 5000000000, "item_ids": ["1956361d"]},
+    {"name": "All Class Atack Character Rune +10", "max_price": 5000000000, "item_ids": ["1a56361d"]},
+    {"name": "Dex Chacater Rune +1", "max_price": 40000000, "item_ids": ["3f55361d"]},
+    {"name": "Dex Chacater Rune +2", "max_price": 100000000, "item_ids": ["4055361d"]},
+    {"name": "Dex Chacater Rune +3", "max_price": 200000000, "item_ids": ["4155361d"]},
+    {"name": "Dex Chacater Rune +4", "max_price": 400000000, "item_ids": ["4255361d"]},
+    {"name": "Dex Chacater Rune +5", "max_price": 1000000000, "item_ids": ["4355361d"]},
+    {"name": "Dex Chacater Rune +6", "max_price": 2500000000, "item_ids": ["4455361d"]},
+    {"name": "Dex Chacater Rune +7", "max_price": 2500000000, "item_ids": ["4555361d"]},
+    {"name": "Dex Chacater Rune +8", "max_price": 5000000000, "item_ids": ["4655361d"]},
+    {"name": "Dex Chacater Rune +9", "max_price": 5000000000, "item_ids": ["4755361d"]},
+    {"name": "Dex Chacater Rune +10", "max_price": 5000000000, "item_ids": ["4855361d"]},
+    {"name": "Max Def Character Rune +1", "max_price": 20000000, "item_ids": ["d357361d"]},
+    {"name": "Max Def Character Rune +2", "max_price": 100000000, "item_ids": ["d457361d"]},
+    {"name": "Max Def Character Rune +3", "max_price": 200000000, "item_ids": ["d557361d"]},
+    {"name": "Max Def Character Rune +4", "max_price": 400000000, "item_ids": ["d657361d"]},
+    {"name": "Max Def Character Rune +5", "max_price": 1000000000, "item_ids": ["d757361d"]},
+    {"name": "Max Def Character Rune +6", "max_price": 2500000000, "item_ids": ["d857361d"]},
+    {"name": "Max Def Character Rune +7", "max_price": 2500000000, "item_ids": ["d957361d"]},
+    {"name": "Max Def Character Rune +8", "max_price": 5000000000, "item_ids": ["da57361d"]},
+    {"name": "Max Def Character Rune +9", "max_price": 5000000000, "item_ids": ["db57361d"]},
+    {"name": "Max Def Character Rune +10", "max_price": 5000000000, "item_ids": ["dc57361d"]},
+    {"name": "Max Hp Character Rune +1", "max_price": 10000000, "item_ids": ["9757361d"]},
+    {"name": "Max Hp Character Rune +2", "max_price": 20000000, "item_ids": ["9857361d"]},
+    {"name": "Max Hp Character Rune +3", "max_price": 50000000, "item_ids": ["9957361d"]},
+    {"name": "Max Hp Character Rune +4", "max_price": 200000000, "item_ids": ["9a57361d"]},
+    {"name": "Max Hp Character Rune +5", "max_price": 400000000, "item_ids": ["9b57361d"]},
+    {"name": "Max Hp Character Rune +6", "max_price": 1000000000, "item_ids": ["9c57361d"]},
+    {"name": "Max Hp Character Rune +7", "max_price": 2000000000, "item_ids": ["9d57361d"]},
+    {"name": "Max Hp Character Rune +8", "max_price": 5000000000, "item_ids": ["9e57361d"]},
+    {"name": "Max Hp Character Rune +9", "max_price": 5000000000, "item_ids": ["9f57361d"]},
+    {"name": "Max Hp Character Rune +10", "max_price": 5000000000, "item_ids": ["a057361d"]},
+    {"name": "Warrior Class Def Character Rune +1", "max_price": 40000000, "item_ids": ["c556361d"]},
+    {"name": "Warrior Class Def Character Rune +2", "max_price": 100000000, "item_ids": ["c656361d"]},
+    {"name": "Warrior Class Def Character Rune +3", "max_price": 200000000, "item_ids": ["c756361d"]},
+    {"name": "Warrior Class Def Character Rune +4", "max_price": 400000000, "item_ids": ["c856361d"]},
+    {"name": "Warrior Class Def Character Rune +5", "max_price": 1000000000, "item_ids": ["c956361d"]},
+    {"name": "Warrior Class Def Character Rune +6", "max_price": 2500000000, "item_ids": ["ca56361d"]},
+    {"name": "Warrior Class Def Character Rune +7", "max_price": 2500000000, "item_ids": ["cb56361d"]},
+    {"name": "Warrior Class Def Character Rune +8", "max_price": 5000000000, "item_ids": ["cc56361d"]},
+    {"name": "Warrior Class Def Character Rune +9", "max_price": 5000000000, "item_ids": ["cd56361d"]},
+    {"name": "Warrior Class Def Character Rune +10", "max_price": 5000000000, "item_ids": ["ce56361d"]},
+    {"name": "All Class Def Character Rune +1", "max_price": 100000000, "item_ids": ["a756361d"]},
+    {"name": "All Class Def Character Rune +2", "max_price": 300000000, "item_ids": ["a856361d"]},
+    {"name": "All Class Def Character Rune +3", "max_price": 1000000000, "item_ids": ["a956361d"]},
+    {"name": "All Class Def Character Rune +4", "max_price": 2000000000, "item_ids": ["aa56361d"]},
+    {"name": "All Class Def Character Rune +5", "max_price": 2500000000, "item_ids": ["ab56361d"]},
+    {"name": "All Class Def Character Rune +6", "max_price": 2500000000, "item_ids": ["ac56361d"]},
+    {"name": "All Class Def Character Rune +7", "max_price": 5000000000, "item_ids": ["ad56361d"]},
+    {"name": "All Class Def Character Rune +8", "max_price": 5000000000, "item_ids": ["ae56361d"]},
+    {"name": "All Class Def Character Rune +9", "max_price": 5000000000, "item_ids": ["af56361d"]},
+    {"name": "All Class Def Character Rune +10", "max_price": 5000000000, "item_ids": ["b056361d"]},
+    {"name": "Max Atack Character Rune +1", "max_price": 40000000, "item_ids": ["f157361d"]},
+    {"name": "Max Atack Character Rune +2", "max_price": 100000000, "item_ids": ["f257361d"]},
+    {"name": "Max Atack Character Rune +3", "max_price": 300000000, "item_ids": ["f357361d"]},
+    {"name": "Max Atack Character Rune +4", "max_price": 800000000, "item_ids": ["f457361d"]},
+    {"name": "Max Atack Character Rune +5", "max_price": 1500000000, "item_ids": ["f557361d"]},
+    {"name": "Max Atack Character Rune +6", "max_price": 2500000000, "item_ids": ["f657361d"]},
+    {"name": "Max Atack Character Rune +7", "max_price": 5000000000, "item_ids": ["f757361d"]},
+    {"name": "Max Atack Character Rune +8", "max_price": 5000000000, "item_ids": ["f857361d"]},
+    {"name": "Max Atack Character Rune +9", "max_price": 5000000000, "item_ids": ["f957361d"]},
+    {"name": "Max Atack Character Rune +10", "max_price": 5000000000, "item_ids": ["fa57361d"]},
+    {"name": "Drop Bonus Character Rune +1", "max_price": 15000000, "item_ids": ["b755361d"]},
+    {"name": "Drop Bonus Character Rune +2", "max_price": 40000000, "item_ids": ["b855361d"]},
+    {"name": "Drop Bonus Character Rune +3", "max_price": 115000000, "item_ids": ["b955361d"]},
+    {"name": "Drop Bonus Character Rune +4", "max_price": 350000000, "item_ids": ["ba55361d"]},
+    {"name": "Drop Bonus Character Rune +5", "max_price": 1000000000, "item_ids": ["bb55361d"]},
+    {"name": "Drop Bonus Character Rune +6", "max_price": 2500000000, "item_ids": ["bc55361d"]},
+    {"name": "Drop Bonus Character Rune +7", "max_price": 5000000000, "item_ids": ["bd55361d"]},
+    {"name": "Drop Bonus Character Rune +8", "max_price": 5000000000, "item_ids": ["be55361d"]},
+    {"name": "Drop Bonus Character Rune +9", "max_price": 5000000000, "item_ids": ["bf55361d"]},
+    {"name": "Drop Bonus Character Rune +10", "max_price": 5000000000, "item_ids": ["c055361d"]},
+    {"name": "WP. B. Character Rune +1", "max_price": 5000000, "item_ids": ["3d57361d"]},
+    {"name": "WP. B. Character Rune +2", "max_price": 15000000, "item_ids": ["3e57361d"]},
+    {"name": "WP. B. Character Rune +3", "max_price": 40000000, "item_ids": ["3f57361d"]},
+    {"name": "WP. B. Character Rune +4", "max_price": 100000000, "item_ids": ["4057361d"]},
+    {"name": "WP. B. Character Rune +5", "max_price": 250000000, "item_ids": ["4157361d"]},
+    {"name": "WP. B. Character Rune +6", "max_price": 250000000, "item_ids": ["4257361d"]},
+    {"name": "WP. B. Character Rune +7", "max_price": 1000000000, "item_ids": ["4357361d"]},
+    {"name": "WP. B. Character Rune +8", "max_price": 1000000000, "item_ids": ["4457361d"]},
+    {"name": "WP. B. Character Rune +9", "max_price": 2000000000, "item_ids": ["4557361d"]},
+    {"name": "WP. B. Character Rune +10", "max_price": 2000000000, "item_ids": ["4657361d"]},
+    {"name": "Giant Unique Jewel +1", "max_price": 6000000, "item_ids": ["70a5e630"]},
 ]
 ID_MAP = {
-    "10058314": "Thunder Ring Old",
-    "10243217": "Fragment of Thnder LWL 3 +0",
-    "10717310": "Mage Holy Titan Pauldron Reb+10",
-    "11571907": "Dark Shadow Dagger +1",
-    "11717310": "Mage Holy Titan Pauldron Reb+11",
-    "12571907": "Dark Shadow Dagger +2",
-    "12717310": "Mage Holy Titan Pauldron Reb+12",
-    "13571907": "Dark Shadow Dagger +3",
-    "13717310": "Mage Holy Titan Pauldron Reb+13",
-    "14571907": "Dark Shadow Dagger +4",
-    "14717310": "Mage Holy Titan Pauldron Reb+14",
-    "15571907": "Dark Shadow Dagger +5",
-    "15717310": "Mage Holy Titan Pauldron Reb+15",
-    "16571907": "Dark Shadow Dagger +6",
-    "16717310": "Mage Holy Titan Pauldron Reb+16",
-    "17571907": "Dark Shadow Dagger +7",
-    "17717310": "Mage Holy Titan Pauldron Reb+17",
-    "17786814": "Essence Pendant Old",
-    "18571907": "Dark Shadow Dagger +8",
-    "18717310": "Mage Holy Titan Pauldron Reb+18",
-    "19571907": "Dark Shadow Dagger +9",
-    "19717310": "Mage Holy Titan Pauldron Reb+19",
-    "20769916": "Blue Chest +0",
-    "23898312": "Rogue Silver Earring +1",
-    "24898312": "Rogue Silver Earring +2",
-    "25898312": "Rogue Silver Earring +3",
-    "28203217": "Fragment of Mirage LWL 2 +0",
-    "29845214": "Old Ring of the Dragon Light Old",
-    "30879523": "Priest Elder Armor Pads Reb+2",
-    "31879523": "Priest Elder Armor Pads Reb+3",
-    "32879523": "Priest Elder Armor Pads Reb+4",
-    "33879523": "Priest Elder Armor Pads Reb+5",
-    "37031813": "Elder Necklace Old",
-    "38729916": "Green Chest +0",
-    "47839523": "Priest Elder Armor Pauldron Reb+1",
-    "48839523": "Priest Elder Armor Pauldron Reb+2",
-    "49839523": "Priest Elder Armor Pauldron Reb+3",
-    "65293321": "Rogue Elder Armor Pauldron Reb+1",
-    "66293321": "Rogue Elder Armor Pauldron Reb+2",
-    "67293321": "Rogue Elder Armor Pauldron Reb+3",
-    "68293321": "Rogue Elder Armor Pauldron Reb+4",
-    "69293321": "Rogue Elder Armor Pauldron Reb+5",
-    "73621708": "King Axe +0",
-    "80621708": "King Axe +2",
-    "81621708": "King Axe +3",
-    "82621708": "King Axe +4",
-    "83621708": "King Axe +5",
-    "84621708": "King Axe +6",
-    "85621708": "King Axe +7",
-    "86621708": "King Axe +8",
-    "87621708": "King Axe +9",
-    "88621708": "King Axe +10",
-    "97366410": "Mage Titan Helmet Reb+1",
-    "97639511": "Priest Titan Helmet Reb+1",
-    "98366410": "Mage Titan Helmet Reb+2",
-    "98639511": "Priest Titan Helmet Reb+2",
-    "99366410": "Mage Titan Helmet Reb+3",
-    "99639511": "Priest Titan Helmet Reb+3",
     "b078450b": "Hope's Frozen Staff +0",
     "317a450b": "Hope's Frozen Staff +1",
     "327a450b": "Hope's Frozen Staff +2",
@@ -2686,6 +2771,15 @@ ID_MAP = {
     "6f87480b": "Hope's Fire Staff +9",
     "7087480b": "Hope's Fire Staff +10",
     "ad561907": "Dark Shadow Dagger +0",
+    "11571907": "Dark Shadow Dagger +1",
+    "12571907": "Dark Shadow Dagger +2",
+    "13571907": "Dark Shadow Dagger +3",
+    "14571907": "Dark Shadow Dagger +4",
+    "15571907": "Dark Shadow Dagger +5",
+    "16571907": "Dark Shadow Dagger +6",
+    "17571907": "Dark Shadow Dagger +7",
+    "18571907": "Dark Shadow Dagger +8",
+    "19571907": "Dark Shadow Dagger +9",
     "1a571907": "Dark Shadow Dagger +10",
     "d17d1907": "Dark Shadow Dagger Reb+1",
     "d27d1907": "Dark Shadow Dagger Reb+2",
@@ -2918,7 +3012,17 @@ ID_MAP = {
     "fe1a4d0b": "Gaze of Icedeath +8",
     "ff1a4d0b": "Gaze of Icedeath +9",
     "001a4d0b": "Gaze of Icedeath +10",
+    "73621708": "King Axe +0",
     "7f621708": "King Axe +1",
+    "80621708": "King Axe +2",
+    "81621708": "King Axe +3",
+    "82621708": "King Axe +4",
+    "83621708": "King Axe +5",
+    "84621708": "King Axe +6",
+    "85621708": "King Axe +7",
+    "86621708": "King Axe +8",
+    "87621708": "King Axe +9",
+    "88621708": "King Axe +10",
     "cf469009": "HellFire Bow +0",
     "df469009": "HellFire Bow +1",
     "e0469009": "HellFire Bow +2",
@@ -3098,6 +3202,8 @@ ID_MAP = {
     "3281a031": "Giant Wrath Spear +8",
     "3381a031": "Giant Wrath Spear +9",
     "3481a031": "Giant Wrath Spear +10",
+    "0e479431": "Giandt Katana Sword +0",
+    "36e89b31": "Giant Lords Sentinial +0",
     "11eea006": "Shade Dagger +1",
     "39eea006": "Shade Dagger +1",
     "12eea006": "Shade Dagger +2",
@@ -3617,6 +3723,12 @@ ID_MAP = {
     "8b4bb913": "Fire Ring +3",
     "3f987e14": "Frozen Ring Old",
     "cd70b913": "Frozen Ring +0",
+    "10058314": "Thunder Ring Old",
+    "bc99b913": "Thunder Ring +0",
+    "bd99b913": "Thunder Ring +1",
+    "be99b913": "Thunder Ring +2",
+    "bf99b913": "Thunder Ring +3",
+    "17786814": "Essence Pendant Old",
     "247e1413": "Essence Pendant +0",
     "e77e1413": "Essence Pendant +1",
     "e87e1413": "Essence Pendant +2",
@@ -3669,6 +3781,9 @@ ID_MAP = {
     "177c8012": "Shaman Silver Earring +3",
     "78b28312": "Rogue Silver Earring Old",
     "b6888312": "Rogue Silver Earring +0",
+    "23898312": "Rogue Silver Earring +1",
+    "24898312": "Rogue Silver Earring +2",
+    "25898312": "Rogue Silver Earring +3",
     "9dbe7514": "Hero Ring Old",
     "2f15ad13": "Hero Ring +0",
     "5d15ad13": "Hero Ring +1",
@@ -3682,6 +3797,7 @@ ID_MAP = {
     "7b991a13": "Amulet Of Evil +1",
     "7c991a13": "Amulet Of Evil +2",
     "7d991a13": "Amulet Of Evil +3",
+    "37031813": "Elder Necklace Old",
     "58c21a13": "Amulet of Divinity Old",
     "4c2a1813": "Red Drake Neck Old",
     "10701c13": "Str Necklace Old",
@@ -3713,6 +3829,7 @@ ID_MAP = {
     "c8dcb413": "Old Ring of the Dragon Fire Old",
     "6eddb413": "Old Ring of the Dragon Fire +0",
     "3f805214": "Old Ring of the Dragon Ice Old",
+    "29845214": "Old Ring of the Dragon Light Old",
     "3a875214": "Old Ring of the Dragon Light +0",
     "fd3e4a14": "Legender Belt +0",
     "16404a14": "Legender Belt +0",
@@ -4133,13 +4250,21 @@ ID_MAP = {
     "ccded01e": "Warrior Elder Armor Boots Reb+4",
     "cdded01e": "Warrior Elder Armor Boots Reb+5",
     "7940381e": "Warrior Elder Armor Helmet +1",
+    "8340381e": "Warrior Elder Armor Helmet +1",
     "7a40381e": "Warrior Elder Armor Helmet +2",
+    "8440381e": "Warrior Elder Armor Helmet +2",
     "7b40381e": "Warrior Elder Armor Helmet +3",
+    "8540381e": "Warrior Elder Armor Helmet +3",
     "7c40381e": "Warrior Elder Armor Helmet +4",
+    "8640381e": "Warrior Elder Armor Helmet +4",
     "7d40381e": "Warrior Elder Armor Helmet +5",
+    "8740381e": "Warrior Elder Armor Helmet +5",
     "7e40381e": "Warrior Elder Armor Helmet +6",
+    "8840381e": "Warrior Elder Armor Helmet +6",
     "7f40381e": "Warrior Elder Armor Helmet +7",
+    "8940381e": "Warrior Elder Armor Helmet +7",
     "8040381e": "Warrior Elder Armor Helmet +8",
+    "8a40381e": "Warrior Elder Armor Helmet +8",
     "f9d6d01e": "Warrior Elder Armor Helmet Reb+1",
     "fad6d01e": "Warrior Elder Armor Helmet Reb+2",
     "fbd6d01e": "Warrior Elder Armor Helmet Reb+3",
@@ -4162,13 +4287,21 @@ ID_MAP = {
     "b038381e": "Warrior Elder Armor Pauldron +8",
     "ba38381e": "Warrior Elder Armor Pauldron +8",
     "913c381e": "Warrior Elder Armor Pants +1",
+    "9b3c381e": "Warrior Elder Armor Pants +1",
     "923c381e": "Warrior Elder Armor Pants +2",
+    "9c3c381e": "Warrior Elder Armor Pants +2",
     "933c381e": "Warrior Elder Armor Pants +3",
+    "9d3c381e": "Warrior Elder Armor Pants +3",
     "943c381e": "Warrior Elder Armor Pants +4",
+    "9e3c381e": "Warrior Elder Armor Pants +4",
     "953c381e": "Warrior Elder Armor Pants +5",
+    "9f3c381e": "Warrior Elder Armor Pants +5",
     "963c381e": "Warrior Elder Armor Pants +6",
+    "a03c381e": "Warrior Elder Armor Pants +6",
+    "a13c381e": "Warrior Elder Armor Pants +7",
     "973c381e": "Warrior Elder Armor Pants +7",
     "983c381e": "Warrior Elder Armor Pants +8",
+    "a23c381e": "Warrior Elder Armor Pants +8",
     "6b44381e": "Warrior Elder Armor Gauntlets +1",
     "6144381e": "Warrior Elder Armor Gauntlets +1",
     "6c44381e": "Warrior Elder Armor Gauntlets +2",
@@ -4743,6 +4876,11 @@ ID_MAP = {
     "ad949a20": "Rogue Elder Armor Pauldron +7",
     "b0929a20": "Rogue Elder Armor Pauldron +8",
     "ae949a20": "Rogue Elder Armor Pauldron +8",
+    "65293321": "Rogue Elder Armor Pauldron Reb+1",
+    "66293321": "Rogue Elder Armor Pauldron Reb+2",
+    "67293321": "Rogue Elder Armor Pauldron Reb+3",
+    "68293321": "Rogue Elder Armor Pauldron Reb+4",
+    "69293321": "Rogue Elder Armor Pauldron Reb+5",
     "619e9a20": "Rogue Elder Armor Gauntlets +1",
     "5fa09a20": "Rogue Elder Armor Gauntlets +1",
     "629e9a20": "Rogue Elder Armor Gauntlets +2",
@@ -4776,15 +4914,24 @@ ID_MAP = {
     "98969a20": "Rogue Elder Armor Pads +8",
     "96989a20": "Rogue Elder Armor Pads +8",
     "2d110c11": "Priest Holy Titan Helmet +1",
+    "390f0c11": "Priest Holy Titan Helmet +1",
     "2e110c11": "Priest Holy Titan Helmet +2",
+    "3a0f0c11": "Priest Holy Titan Helmet +2",
     "2f110c11": "Priest Holy Titan Helmet +3",
+    "3b0f0c11": "Priest Holy Titan Helmet +3",
     "30110c11": "Priest Holy Titan Helmet +4",
+    "3c0f0c11": "Priest Holy Titan Helmet +4",
     "31110c11": "Priest Holy Titan Helmet +5",
+    "3d0f0c11": "Priest Holy Titan Helmet +5",
+    "3e0f0c11": "Priest Holy Titan Helmet +6",
     "32110c11": "Priest Holy Titan Helmet +6",
     "33110c11": "Priest Holy Titan Helmet +7",
     "34110c11": "Priest Holy Titan Helmet +8",
+    "400f0c11": "Priest Holy Titan Helmet +8",
     "35110c11": "Priest Holy Titan Helmet +9",
+    "410f0c11": "Priest Holy Titan Helmet +9",
     "36110c11": "Priest Holy Titan Helmet +10",
+    "420f0c11": "Priest Holy Titan Helmet +10",
     "d7a5a411": "Priest Holy Titan Helmet Reb+1",
     "d8a5a411": "Priest Holy Titan Helmet Reb+2",
     "d9a5a411": "Priest Holy Titan Helmet Reb+3",
@@ -4889,25 +5036,16 @@ ID_MAP = {
     "02a1a411": "Priest Holy Titan Pads Reb+20",
     "03a1a411": "Priest Holy Titan Pads Reb+21",
     "fd190c11": "Priest Holy Titan Boots +1",
-    "390f0c11": "Priest Holy Titan Boots +1",
     "fe190c11": "Priest Holy Titan Boots +2",
-    "3a0f0c11": "Priest Holy Titan Boots +2",
     "ff190c11": "Priest Holy Titan Boots +3",
-    "3b0f0c11": "Priest Holy Titan Boots +3",
     "00190c11": "Priest Holy Titan Boots +4",
-    "3c0f0c11": "Priest Holy Titan Boots +4",
     "01190c11": "Priest Holy Titan Boots +5",
-    "3d0f0c11": "Priest Holy Titan Boots +5",
-    "3e0f0c11": "Priest Holy Titan Boots +6",
     "02190c11": "Priest Holy Titan Boots +6",
     "03190c11": "Priest Holy Titan Boots +7",
     "3f0f0c11": "Priest Holy Titan Boots +7",
     "04190c11": "Priest Holy Titan Boots +8",
-    "400f0c11": "Priest Holy Titan Boots +8",
     "05190c11": "Priest Holy Titan Boots +9",
-    "410f0c11": "Priest Holy Titan Boots +9",
     "06190c11": "Priest Holy Titan Boots +10",
-    "420f0c11": "Priest Holy Titan Boots +10",
     "a7ada411": "Priest Holy Titan Boots Reb+1",
     "a8ada411": "Priest Holy Titan Boots Reb+2",
     "a9ada411": "Priest Holy Titan Boots Reb+3",
@@ -4930,15 +5068,25 @@ ID_MAP = {
     "baada411": "Priest Holy Titan Boots Reb+20",
     "bbada411": "Priest Holy Titan Boots Reb+21",
     "21130c11": "Priest Holy Titan Gauntlets +1",
+    "15150c11": "Priest Holy Titan Gauntlets +1",
     "22130c11": "Priest Holy Titan Gauntlets +2",
+    "16150c11": "Priest Holy Titan Gauntlets +2",
     "23130c11": "Priest Holy Titan Gauntlets +3",
+    "17150c11": "Priest Holy Titan Gauntlets +3",
     "24130c11": "Priest Holy Titan Gauntlets +4",
+    "18150c11": "Priest Holy Titan Gauntlets +4",
     "25130c11": "Priest Holy Titan Gauntlets +5",
+    "19150c11": "Priest Holy Titan Gauntlets +5",
     "26130c11": "Priest Holy Titan Gauntlets +6",
+    "1a150c11": "Priest Holy Titan Gauntlets +6",
+    "1b150c11": "Priest Holy Titan Gauntlets +7",
     "27130c11": "Priest Holy Titan Gauntlets +7",
     "28130c11": "Priest Holy Titan Gauntlets +8",
+    "1c150c11": "Priest Holy Titan Gauntlets +8",
     "29130c11": "Priest Holy Titan Gauntlets +9",
+    "1d150c11": "Priest Holy Titan Gauntlets +9",
     "2a130c11": "Priest Holy Titan Gauntlets +10",
+    "1e150c11": "Priest Holy Titan Gauntlets +10",
     "bfa9a411": "Priest Holy Titan Gauntlets Reb+1",
     "c0a9a411": "Priest Holy Titan Gauntlets Reb+2",
     "c1a9a411": "Priest Holy Titan Gauntlets Reb+3",
@@ -4962,24 +5110,37 @@ ID_MAP = {
     "d3a9a411": "Priest Holy Titan Gauntlets Reb+21",
     "edcefc10": "Priest Titan Helmet +1",
     "f9ccfc10": "Priest Titan Helmet +1",
+    "03cdfc10": "Priest Titan Helmet +1",
     "eecefc10": "Priest Titan Helmet +2",
     "faccfc10": "Priest Titan Helmet +2",
+    "04cdfc10": "Priest Titan Helmet +2",
     "efcefc10": "Priest Titan Helmet +3",
     "fbccfc10": "Priest Titan Helmet +3",
+    "05cdfc10": "Priest Titan Helmet +3",
     "f0cefc10": "Priest Titan Helmet +4",
     "fcccfc10": "Priest Titan Helmet +4",
+    "06cdfc10": "Priest Titan Helmet +4",
     "f1cefc10": "Priest Titan Helmet +5",
     "fdccfc10": "Priest Titan Helmet +5",
+    "07cdfc10": "Priest Titan Helmet +5",
     "f2cefc10": "Priest Titan Helmet +6",
     "feccfc10": "Priest Titan Helmet +6",
+    "08cdfc10": "Priest Titan Helmet +6",
     "ffccfc10": "Priest Titan Helmet +7",
     "f3cefc10": "Priest Titan Helmet +7",
+    "09cdfc10": "Priest Titan Helmet +7",
     "f4cefc10": "Priest Titan Helmet +8",
     "00ccfc10": "Priest Titan Helmet +8",
+    "0acdfc10": "Priest Titan Helmet +8",
     "f5cefc10": "Priest Titan Helmet +9",
     "01ccfc10": "Priest Titan Helmet +9",
+    "0bcdfc10": "Priest Titan Helmet +9",
     "f6cefc10": "Priest Titan Helmet +10",
     "02ccfc10": "Priest Titan Helmet +10",
+    "0ccdfc10": "Priest Titan Helmet +10",
+    "97639511": "Priest Titan Helmet Reb+1",
+    "98639511": "Priest Titan Helmet Reb+2",
+    "99639511": "Priest Titan Helmet Reb+3",
     "9a639511": "Priest Titan Helmet Reb+4",
     "9b639511": "Priest Titan Helmet Reb+5",
     "9c639511": "Priest Titan Helmet Reb+6",
@@ -5029,57 +5190,109 @@ ID_MAP = {
     "1ac9fc10": "Priest Titan Pads +10",
     "0ecbfc10": "Priest Titan Pads +10",
     "af5f9511": "Priest Titan Pads Reb+1",
+    "915f9511": "Priest Titan Pads Reb+1",
     "b05f9511": "Priest Titan Pads Reb+2",
+    "925f9511": "Priest Titan Pads Reb+2",
     "b15f9511": "Priest Titan Pads Reb+3",
+    "935f9511": "Priest Titan Pads Reb+3",
     "b25f9511": "Priest Titan Pads Reb+4",
+    "945f9511": "Priest Titan Pads Reb+4",
+    "955f9511": "Priest Titan Pads Reb+5",
     "b35f9511": "Priest Titan Pads Reb+5",
     "b45f9511": "Priest Titan Pads Reb+6",
+    "965f9511": "Priest Titan Pads Reb+6",
     "b55f9511": "Priest Titan Pads Reb+7",
+    "975f9511": "Priest Titan Pads Reb+7",
     "b65f9511": "Priest Titan Pads Reb+8",
+    "985f9511": "Priest Titan Pads Reb+8",
     "b75f9511": "Priest Titan Pads Reb+9",
+    "995f9511": "Priest Titan Pads Reb+9",
     "b85f9511": "Priest Titan Pads Reb+10",
+    "9a5f9511": "Priest Titan Pads Reb+10",
     "b95f9511": "Priest Titan Pads Reb+11",
+    "9b5f9511": "Priest Titan Pads Reb+11",
     "ba5f9511": "Priest Titan Pads Reb+12",
+    "9c5f9511": "Priest Titan Pads Reb+12",
     "bb5f9511": "Priest Titan Pads Reb+13",
+    "9d5f9511": "Priest Titan Pads Reb+13",
     "bc5f9511": "Priest Titan Pads Reb+14",
+    "9e5f9511": "Priest Titan Pads Reb+14",
     "bd5f9511": "Priest Titan Pads Reb+15",
+    "9f5f9511": "Priest Titan Pads Reb+15",
     "be5f9511": "Priest Titan Pads Reb+16",
+    "a05f9511": "Priest Titan Pads Reb+16",
     "bf5f9511": "Priest Titan Pads Reb+17",
+    "a15f9511": "Priest Titan Pads Reb+17",
     "c05f9511": "Priest Titan Pads Reb+18",
+    "a25f9511": "Priest Titan Pads Reb+18",
     "c15f9511": "Priest Titan Pads Reb+19",
+    "a35f9511": "Priest Titan Pads Reb+19",
     "c25f9511": "Priest Titan Pads Reb+20",
+    "a45f9511": "Priest Titan Pads Reb+20",
     "c35f9511": "Priest Titan Pads Reb+21",
+    "a55f9511": "Priest Titan Pads Reb+21",
     "bdd6fc10": "Priest Titan Boots +1",
+    "d3d4fc10": "Priest Titan Boots +1",
     "bed6fc10": "Priest Titan Boots +2",
+    "d4d4fc10": "Priest Titan Boots +2",
     "bfd6fc10": "Priest Titan Boots +3",
+    "d5d4fc10": "Priest Titan Boots +3",
     "c0d6fc10": "Priest Titan Boots +4",
+    "d6d4fc10": "Priest Titan Boots +4",
     "c1d6fc10": "Priest Titan Boots +5",
+    "d7d4fc10": "Priest Titan Boots +5",
     "c2d6fc10": "Priest Titan Boots +6",
+    "d8d4fc10": "Priest Titan Boots +6",
     "c3d6fc10": "Priest Titan Boots +7",
+    "d9d4fc10": "Priest Titan Boots +7",
+    "dad4fc10": "Priest Titan Boots +8",
     "c4d6fc10": "Priest Titan Boots +8",
     "c5d6fc10": "Priest Titan Boots +9",
+    "dbd4fc10": "Priest Titan Boots +9",
     "c6d6fc10": "Priest Titan Boots +10",
+    "dcd4fc10": "Priest Titan Boots +10",
     "676b9511": "Priest Titan Boots Reb+1",
+    "496b9511": "Priest Titan Boots Reb+1",
     "686b9511": "Priest Titan Boots Reb+2",
+    "4a6b9511": "Priest Titan Boots Reb+2",
     "696b9511": "Priest Titan Boots Reb+3",
+    "4b6b9511": "Priest Titan Boots Reb+3",
     "6a6b9511": "Priest Titan Boots Reb+4",
+    "4c6b9511": "Priest Titan Boots Reb+4",
     "6b6b9511": "Priest Titan Boots Reb+5",
+    "4d6b9511": "Priest Titan Boots Reb+5",
     "6c6b9511": "Priest Titan Boots Reb+6",
+    "4e6b9511": "Priest Titan Boots Reb+6",
     "6d6b9511": "Priest Titan Boots Reb+7",
+    "4f6b9511": "Priest Titan Boots Reb+7",
     "6e6b9511": "Priest Titan Boots Reb+8",
+    "506b9511": "Priest Titan Boots Reb+8",
     "6f6b9511": "Priest Titan Boots Reb+9",
+    "516b9511": "Priest Titan Boots Reb+9",
     "706b9511": "Priest Titan Boots Reb+10",
+    "526b9511": "Priest Titan Boots Reb+10",
     "716b9511": "Priest Titan Boots Reb+11",
+    "536b9511": "Priest Titan Boots Reb+11",
     "726b9511": "Priest Titan Boots Reb+12",
+    "546b9511": "Priest Titan Boots Reb+12",
     "736b9511": "Priest Titan Boots Reb+13",
+    "556b9511": "Priest Titan Boots Reb+13",
     "746b9511": "Priest Titan Boots Reb+14",
+    "566b9511": "Priest Titan Boots Reb+14",
     "756b9511": "Priest Titan Boots Reb+15",
+    "576b9511": "Priest Titan Boots Reb+15",
     "766b9511": "Priest Titan Boots Reb+16",
+    "586b9511": "Priest Titan Boots Reb+16",
     "776b9511": "Priest Titan Boots Reb+17",
+    "596b9511": "Priest Titan Boots Reb+17",
     "786b9511": "Priest Titan Boots Reb+18",
+    "5a6b9511": "Priest Titan Boots Reb+18",
     "796b9511": "Priest Titan Boots Reb+19",
+    "5b6b9511": "Priest Titan Boots Reb+19",
     "7a6b9511": "Priest Titan Boots Reb+20",
+    "5c6b9511": "Priest Titan Boots Reb+20",
     "7b6b9511": "Priest Titan Boots Reb+21",
+    "5d6b9511": "Priest Titan Boots Reb+21",
     "e1d0fc10": "Priest Titan Gauntlets +1",
     "e2d0fc10": "Priest Titan Gauntlets +2",
     "e3d0fc10": "Priest Titan Gauntlets +3",
@@ -5343,6 +5556,9 @@ ID_MAP = {
     "afecfc22": "Priest Elder Armor Pauldron +7",
     "b0ecfc22": "Priest Elder Armor Pauldron +8",
     "a4eefc22": "Priest Elder Armor Pauldron +8",
+    "47839523": "Priest Elder Armor Pauldron Reb+1",
+    "48839523": "Priest Elder Armor Pauldron Reb+2",
+    "49839523": "Priest Elder Armor Pauldron Reb+3",
     "4a839523": "Priest Elder Armor Pauldron Reb+4",
     "4b839523": "Priest Elder Armor Pauldron Reb+5",
     "85f2fc22": "Priest Elder Armor Pads +1",
@@ -5362,6 +5578,10 @@ ID_MAP = {
     "8cf2fc22": "Priest Elder Armor Pads +8",
     "98f0fc22": "Priest Elder Armor Pads +8",
     "2f879523": "Priest Elder Armor Pads Reb+1",
+    "30879523": "Priest Elder Armor Pads Reb+2",
+    "31879523": "Priest Elder Armor Pads Reb+3",
+    "32879523": "Priest Elder Armor Pads Reb+4",
+    "33879523": "Priest Elder Armor Pads Reb+5",
     "6bf8fc22": "Priest Elder Armor Gauntlets +1",
     "55fafc22": "Priest Elder Armor Gauntlets +1",
     "6cf8fc22": "Priest Elder Armor Gauntlets +2",
@@ -5412,6 +5632,16 @@ ID_MAP = {
     "0d717310": "Mage Holy Titan Pauldron Reb+7",
     "0e717310": "Mage Holy Titan Pauldron Reb+8",
     "0f717310": "Mage Holy Titan Pauldron Reb+9",
+    "10717310": "Mage Holy Titan Pauldron Reb+10",
+    "11717310": "Mage Holy Titan Pauldron Reb+11",
+    "12717310": "Mage Holy Titan Pauldron Reb+12",
+    "13717310": "Mage Holy Titan Pauldron Reb+13",
+    "14717310": "Mage Holy Titan Pauldron Reb+14",
+    "15717310": "Mage Holy Titan Pauldron Reb+15",
+    "16717310": "Mage Holy Titan Pauldron Reb+16",
+    "17717310": "Mage Holy Titan Pauldron Reb+17",
+    "18717310": "Mage Holy Titan Pauldron Reb+18",
+    "19717310": "Mage Holy Titan Pauldron Reb+19",
     "1a717310": "Mage Holy Titan Pauldron Reb+20",
     "1b717310": "Mage Holy Titan Pauldron Reb+21",
     "51deda0f": "Mage Holy Titan Pads +1",
@@ -5505,6 +5735,9 @@ ID_MAP = {
     "f5a1cb0f": "Mage Titan Helmet +9",
     "029fcb0f": "Mage Titan Helmet +10",
     "f6a1cb0f": "Mage Titan Helmet +10",
+    "97366410": "Mage Titan Helmet Reb+1",
+    "98366410": "Mage Titan Helmet Reb+2",
+    "99366410": "Mage Titan Helmet Reb+3",
     "9a366410": "Mage Titan Helmet Reb+4",
     "9b366410": "Mage Titan Helmet Reb+5",
     "9c366410": "Mage Titan Helmet Reb+6",
@@ -5905,7 +6138,11 @@ ID_MAP = {
     "58fc7206": "High Mastery CR BOX +0",
     "68b50d0c": "NOWA BOX +0",
     "506e9916": "Red Chest +0",
+    "38729916": "Green Chest +0",
+    "20769916": "Blue Chest +0",
     "401c3217": "Fragment of Blaze LWL 1 +0",
+    "28203217": "Fragment of Mirage LWL 2 +0",
+    "10243217": "Fragment of Thnder LWL 3 +0",
     "f8273217": "Fragment of Eclipse LWL 4 +0",
     "e02b3217": "Fragment of Tempest LWL 5 +0",
     "c82f3217": "Fragment of Aurora LWL 6 +0",
@@ -5939,7 +6176,111 @@ ID_MAP = {
     "28aef70e": "+9 Holy Upgrade Scrool +0",
     "40aaf70e": "+8 Holy Upgrade Scrool +0",
     "10b2f70e": "Divine Upgrade Scrool +7 +0",
-    "81b9670b": "Gold Rod +30"
+    "f8b8e630": "Party Monster Stone +1",
+    "58a9e630": "Silver Token +1",
+    "40ade630": "Gold Token +1",
+    "28b1e630": "Rune Box 1",
+    "2155361d": "STR Character Rune +1",
+    "2255361d": "STR Character Rune +2",
+    "2355361d": "STR Character Rune +3",
+    "2455361d": "STR Character Rune +4",
+    "2555361d": "STR Character Rune +5",
+    "2655361d": "STR Character Rune +6",
+    "2755361d": "STR Character Rune +7",
+    "2855361d": "STR Character Rune +8",
+    "2955361d": "STR Character Rune +9",
+    "2a55361d": "STR Character Rune +10",
+    "1156361d": "All Class Atack Character Rune +1",
+    "1256361d": "All Class Atack Character Rune +2",
+    "1356361d": "All Class Atack Character Rune +3",
+    "1456361d": "All Class Atack Character Rune +4",
+    "1556361d": "All Class Atack Character Rune +5",
+    "1656361d": "All Class Atack Character Rune +6",
+    "1756361d": "All Class Atack Character Rune +7",
+    "1856361d": "All Class Atack Character Rune +8",
+    "1956361d": "All Class Atack Character Rune +9",
+    "1a56361d": "All Class Atack Character Rune +10",
+    "3f55361d": "Dex Chacater Rune +1",
+    "4055361d": "Dex Chacater Rune +2",
+    "4155361d": "Dex Chacater Rune +3",
+    "4255361d": "Dex Chacater Rune +4",
+    "4355361d": "Dex Chacater Rune +5",
+    "4455361d": "Dex Chacater Rune +6",
+    "4555361d": "Dex Chacater Rune +7",
+    "4655361d": "Dex Chacater Rune +8",
+    "4755361d": "Dex Chacater Rune +9",
+    "4855361d": "Dex Chacater Rune +10",
+    "d357361d": "Max Def Character Rune +1",
+    "d457361d": "Max Def Character Rune +2",
+    "d557361d": "Max Def Character Rune +3",
+    "d657361d": "Max Def Character Rune +4",
+    "d757361d": "Max Def Character Rune +5",
+    "d857361d": "Max Def Character Rune +6",
+    "d957361d": "Max Def Character Rune +7",
+    "da57361d": "Max Def Character Rune +8",
+    "db57361d": "Max Def Character Rune +9",
+    "dc57361d": "Max Def Character Rune +10",
+    "9757361d": "Max Hp Character Rune +1",
+    "9857361d": "Max Hp Character Rune +2",
+    "9957361d": "Max Hp Character Rune +3",
+    "9a57361d": "Max Hp Character Rune +4",
+    "9b57361d": "Max Hp Character Rune +5",
+    "9c57361d": "Max Hp Character Rune +6",
+    "9d57361d": "Max Hp Character Rune +7",
+    "9e57361d": "Max Hp Character Rune +8",
+    "9f57361d": "Max Hp Character Rune +9",
+    "a057361d": "Max Hp Character Rune +10",
+    "c556361d": "Warrior Class Def Character Rune +1",
+    "c656361d": "Warrior Class Def Character Rune +2",
+    "c756361d": "Warrior Class Def Character Rune +3",
+    "c856361d": "Warrior Class Def Character Rune +4",
+    "c956361d": "Warrior Class Def Character Rune +5",
+    "ca56361d": "Warrior Class Def Character Rune +6",
+    "cb56361d": "Warrior Class Def Character Rune +7",
+    "cc56361d": "Warrior Class Def Character Rune +8",
+    "cd56361d": "Warrior Class Def Character Rune +9",
+    "ce56361d": "Warrior Class Def Character Rune +10",
+    "a756361d": "All Class Def Character Rune +1",
+    "a856361d": "All Class Def Character Rune +2",
+    "a956361d": "All Class Def Character Rune +3",
+    "aa56361d": "All Class Def Character Rune +4",
+    "ab56361d": "All Class Def Character Rune +5",
+    "ac56361d": "All Class Def Character Rune +6",
+    "ad56361d": "All Class Def Character Rune +7",
+    "ae56361d": "All Class Def Character Rune +8",
+    "af56361d": "All Class Def Character Rune +9",
+    "b056361d": "All Class Def Character Rune +10",
+    "f157361d": "Max Atack Character Rune +1",
+    "f257361d": "Max Atack Character Rune +2",
+    "f357361d": "Max Atack Character Rune +3",
+    "f457361d": "Max Atack Character Rune +4",
+    "f557361d": "Max Atack Character Rune +5",
+    "f657361d": "Max Atack Character Rune +6",
+    "f757361d": "Max Atack Character Rune +7",
+    "f857361d": "Max Atack Character Rune +8",
+    "f957361d": "Max Atack Character Rune +9",
+    "fa57361d": "Max Atack Character Rune +10",
+    "b755361d": "Drop Bonus Character Rune +1",
+    "b855361d": "Drop Bonus Character Rune +2",
+    "b955361d": "Drop Bonus Character Rune +3",
+    "ba55361d": "Drop Bonus Character Rune +4",
+    "bb55361d": "Drop Bonus Character Rune +5",
+    "bc55361d": "Drop Bonus Character Rune +6",
+    "bd55361d": "Drop Bonus Character Rune +7",
+    "be55361d": "Drop Bonus Character Rune +8",
+    "bf55361d": "Drop Bonus Character Rune +9",
+    "c055361d": "Drop Bonus Character Rune +10",
+    "3d57361d": "WP. B. Character Rune +1",
+    "3e57361d": "WP. B. Character Rune +2",
+    "3f57361d": "WP. B. Character Rune +3",
+    "4057361d": "WP. B. Character Rune +4",
+    "4157361d": "WP. B. Character Rune +5",
+    "4257361d": "WP. B. Character Rune +6",
+    "4357361d": "WP. B. Character Rune +7",
+    "4457361d": "WP. B. Character Rune +8",
+    "4557361d": "WP. B. Character Rune +9",
+    "4657361d": "WP. B. Character Rune +10",
+    "70a5e630": "Giant Unique Jewel +1"
 }
 
 
@@ -5948,9 +6289,11 @@ def log(msg):
     print(f"[{ts}] {msg}", flush=True)
 
 
-def load_gist_config():
+def load_gist_config(quiet=False):
+    """Sayfadaki (Gist) guncel fiyatlari yukler. Basarisizsa mevcut liste kalir."""
     global ALARM_LIST, ID_MAP
-    log("Gist'ten alarm listesi yukleniyor...")
+    if not quiet:
+        log("Gist'ten alarm listesi yukleniyor...")
     try:
         ctx = _ssl._create_unverified_context()
         req = urllib.request.Request(
@@ -5993,20 +6336,23 @@ def load_gist_config():
             except Exception:
                 price_val, active = "", False
             if active and price_val:
-                try:
-                    max_price = int(str(price_val).replace(",", "").replace(".", ""))
-                except ValueError:
+                digits = "".join(c for c in str(price_val) if c.isdigit())
+                if not digits:
                     continue
                 alarm_lines.append({
                     "name"     : item_name + " " + level_name,
-                    "max_price": max_price,
+                    "max_price": int(digits),
                     "item_ids" : all_ids
                 })
 
-        ALARM_LIST.clear()
-        ALARM_LIST.extend(alarm_lines)
+        if not alarm_lines:
+            log("  Gist'te aktif alarm yok, mevcut liste korunuyor.")
+            return False
+        changed = len(alarm_lines) != len(ALARM_LIST) or alarm_lines != ALARM_LIST
+        ALARM_LIST[:] = alarm_lines
         ID_MAP.update(id_map_tmp)
-        log(f"  {len(ALARM_LIST)} alarm yuklendi, {len(ID_MAP)} ID haritasinda")
+        if changed or not quiet:
+            log(f"  {len(ALARM_LIST)} alarm yuklendi, {len(ID_MAP)} ID haritasinda")
         return True
     except Exception as e:
         log(f"  Gist yukleme hatasi: {e}")
@@ -6023,16 +6369,18 @@ def check_update():
                 new_ver = line.split("=")[1].strip().strip('"').strip("'")
                 if new_ver != VERSION:
                     log(f"  Yeni versiyon: {new_ver}. Guncelleniyor...")
+                    stop_tcpdump(None)
                     with open(SCRIPT_PATH, "w", encoding="utf-8") as f:
                         f.write(new_code)
                     os.execv(sys.executable, [sys.executable, SCRIPT_PATH])
-                else:
-                    log(f"  Versiyon guncel: {VERSION}")
                 return
     except Exception as e:
         log(f"  Guncelleme basarisiz: {e}")
 
 
+# ── TCPDUMP ──────────────────────────────────────────────────────
+# Sadece KENDI tcpdump'imizi durdururuz (pcap yoluna gore). "killall tcpdump"
+# ayni anda calisan ar_alarm.py'nin dinlemesini de kesiyordu.
 def run_shell(cmd):
     try:
         return subprocess.run(cmd, shell=True, capture_output=True, timeout=20)
@@ -6053,14 +6401,25 @@ def get_pcap_size():
     return 0
 
 
+def stop_tcpdump(proc):
+    if proc is not None:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+    # [t] hilesi: pkill'in kendi komut satiri desene uymasin
+    run_shell(f"su -c 'pkill -f \"[t]cpdump.*{os.path.basename(PCAP_PATH)}\" 2>/dev/null'")
+    time.sleep(1)
+
+
 def start_tcpdump():
     tcpdump_bin = "/data/data/com.termux/files/usr/bin/tcpdump"
-    run_shell("su -c 'killall tcpdump 2>/dev/null'")
-    time.sleep(1)
+    stop_tcpdump(None)
     run_shell(f"su -c 'rm -f {PCAP_PATH}'")
     run_shell("su -c 'chmod 755 /data/local/tmp'")
+    # -U: her paket aninda dosyaya yazilir (tampon beklenmez)
     proc = subprocess.Popen(
-        f"su -c '{tcpdump_bin} -i any -s 0 tcp port {GAME_PORT} -w {PCAP_PATH}'",
+        f"su -c '{tcpdump_bin} -i any -U -s 0 tcp and host {GAME_SERVER} and port {GAME_PORT} -w {PCAP_PATH}'",
         shell=True,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL
@@ -6069,123 +6428,199 @@ def start_tcpdump():
     return proc
 
 
-def stop_tcpdump(proc):
+def read_packets():
+    """Calisan tcpdump'in dosyasini kopyalayip paketleri okur."""
+    packets, link_type = [], 1
     try:
-        proc.kill()
-    except Exception:
-        pass
-    run_shell("su -c 'killall tcpdump 2>/dev/null'")
-    time.sleep(1)
-
-
-def _pcap_bytes(path):
-    result = b""
-    try:
-        with open(path, "rb") as f:
-            hdr = f.read(24)
-            if len(hdr) < 24:
-                return result
-            magic_int = int.from_bytes(hdr[0:4], "little")
-            endian = "<" if magic_int == 0xa1b2c3d4 else ">"
+        run_shell(f"su -c 'cp {PCAP_PATH} {LOCAL_PCAP} && chmod 644 {LOCAL_PCAP}'")
+        with open(LOCAL_PCAP, "rb") as f:
+            magic = f.read(4)
+            if len(magic) < 4:
+                return packets, link_type
+            endian = "<" if magic == b"\xd4\xc3\xb2\xa1" else ">"
+            gh = f.read(20)
+            if len(gh) == 20:
+                link_type = struct.unpack(endian + "I", gh[16:20])[0]
             while True:
-                ph = f.read(16)
-                if len(ph) < 16:
+                hdr = f.read(16)
+                if len(hdr) < 16:
                     break
-                _, _, incl_len, _ = struct.unpack(endian + "IIII", ph)
-                if incl_len > 65535:
+                _, _, incl_len, _ = struct.unpack(endian + "IIII", hdr)
+                if incl_len > 262144:
                     break
-                pkt = f.read(incl_len)
-                if len(pkt) == incl_len:
-                    result += pkt
-    except Exception:
-        pass
-    return result
-
-
-def pcap_kontrol_oku():
-    local = os.path.join(os.path.expanduser("~"), "yp_kontrol.pcap")
-    try:
-        run_shell(f"su -c 'chmod 644 {PCAP_PATH} && cp {PCAP_PATH} {local} && chmod 644 {local}'")
-        if not os.path.exists(local):
-            return b""
-        return _pcap_bytes(local)
-    except Exception:
-        return b""
-    finally:
-        try:
-            os.remove(local)
-        except Exception:
-            pass
-
-
-def read_pcap_raw():
-    local = os.path.join(os.path.expanduser("~"), "yp_scan.pcap")
-    try:
-        run_shell(f"su -c 'chmod 644 {PCAP_PATH} && cp {PCAP_PATH} {local} && chmod 644 {local}'")
-        if not os.path.exists(local) or os.path.getsize(local) < 24:
-            return b""
-        return _pcap_bytes(local)
+                data = f.read(incl_len)
+                if len(data) < incl_len:
+                    break   # tcpdump henuz yaziyor, son paket yarim
+                packets.append(data)
     except Exception as e:
         log(f"  Pcap okuma hatasi: {e}")
-        return b""
-    finally:
+    return packets, link_type
+
+
+# ── PARSER: TCP akisi + AA55 cerceve + 0x2F8 ust pazar mesaji ────
+# Eski parser paketleri IP/TCP basliklariyla birlikte birlestiriyordu; ilk
+# paketten sonraki ilanlar kayiyor, cogu okunamiyordu. Ayrica 1000 byte'tan
+# kucuk listeler (az ilanli sayfa/arama) hic algilanmiyordu.
+def _tcp_parts(pkt, link_type):
+    if link_type == 276:
+        if len(pkt) < 20 or struct.unpack(">H", pkt[0:2])[0] != 0x0800: return None
+        ip_start = 20
+    elif link_type == 113:
+        if len(pkt) < 16 or struct.unpack(">H", pkt[14:16])[0] != 0x0800: return None
+        ip_start = 16
+    else:
+        if len(pkt) < 14 or struct.unpack(">H", pkt[12:14])[0] != 0x0800: return None
+        ip_start = 14
+    if len(pkt) < ip_start + 40 or (pkt[ip_start] >> 4) != 4: return None
+    if pkt[ip_start + 9] != 6: return None
+    ihl = (pkt[ip_start] & 0x0F) * 4
+    src = socket.inet_ntoa(pkt[ip_start + 12:ip_start + 16])
+    ts  = ip_start + ihl
+    if len(pkt) < ts + 20: return None
+    sport, dport, seq = struct.unpack(">HHI", pkt[ts:ts + 8])
+    doff = ((pkt[ts + 12] >> 4) & 0xF) * 4
+    return src, sport, dport, seq, pkt[ts + doff:]
+
+
+def extract_game_chunks(packets, link_type=1):
+    """Sunucu akisini TCP sira numarasina gore birlestirir.
+    Donus: [(port, akistaki_baslangic, bytes)]. Kayip paket varsa akis bolunur."""
+    flows = {}
+    for pkt in packets:
         try:
-            os.remove(local)
+            r = _tcp_parts(pkt, link_type)
         except Exception:
-            pass
-        run_shell(f"su -c 'rm -f {PCAP_PATH}'")
-
-
-def ust_pazar_acik_mi(stream):
-    n = len(stream)
-    i = 0
-    while i < n - 8:
-        if stream[i] == 0xaa and stream[i+1] == 0x55:
-            frame_len = struct.unpack_from("<H", stream, i+2)[0]
-            msg_type  = struct.unpack_from("<I", stream, i+4)[0]
-            if msg_type == MSG_TYPE and frame_len > 1000:
-                return True
-        i += 1
-    return False
-
-
-def parse_yeni_pazar(stream):
-    records, seen = [], set()
-    n = len(stream)
-    i = 0
-    while i < n - 8:
-        if stream[i] != 0xaa or stream[i+1] != 0x55:
-            i += 1
             continue
-        if i + 8 > n:
-            break
-        frame_len = struct.unpack_from("<H", stream, i+2)[0]
-        msg_type  = struct.unpack_from("<I", stream, i+4)[0]
-        if msg_type != MSG_TYPE or frame_len <= 1000:
-            i += 2
-            continue
-        items_start = i + 15
-        j = items_start
-        while j + 29 <= n:
-            if stream[j] == 0xaa and stream[j+1] == 0x55:
-                break
-            item_id = stream[j+4:j+8].hex()
-            price   = int.from_bytes(stream[j+17:j+22], 'little')
-            if item_id != "00000000" and 100_000 <= price <= 999_999_999_999_999:
-                key = (item_id, price)
-                if key not in seen:
-                    seen.add(key)
-                    records.append({"item_id": item_id, "price": price})
-            j += 29
-        i = j if j > items_start else i + 2
-    return records
+        if not r: continue
+        src, sport, dport, seq, payload = r
+        if src != GAME_SERVER or sport != GAME_PORT or not payload: continue
+        segs = flows.setdefault(dport, {})
+        if len(payload) > len(segs.get(seq, b"")):
+            segs[seq] = payload
+    chunks = []
+    for dport, segs in flows.items():
+        first = next(iter(segs))
+        def rel(s):
+            d = (s - first) & 0xFFFFFFFF
+            return d - 0x100000000 if d >= 0x80000000 else d
+        cur, start, nxt = bytearray(), None, None
+        for r0, data in sorted((rel(s), d) for s, d in segs.items()):
+            if nxt is not None and r0 > nxt:
+                chunks.append((dport, start, bytes(cur))); cur = bytearray(); nxt = None
+            if nxt is None:
+                cur += data; start = r0; nxt = r0 + len(data)
+            elif r0 + len(data) > nxt:
+                cur += data[nxt - r0:]; nxt = r0 + len(data)
+        if cur: chunks.append((dport, start, bytes(cur)))
+    return chunks
 
 
-def check_alarms(records):
+def iter_frames(chunk):
+    i, n = 0, len(chunk)
+    while i + 6 <= n:
+        if chunk[i] != 0xAA or chunk[i + 1] != 0x55:
+            i += 1; continue
+        ln = struct.unpack("<H", chunk[i + 2:i + 4])[0]
+        end = i + 4 + ln
+        if end + 2 > n or chunk[end] != 0x55 or chunk[end + 1] != 0xAA:
+            i += 1; continue
+        yield i, chunk[i + 4:end]
+        i = end + 2
+
+
+def parse_ust_pazar_frame(body):
+    """F8 02 | 4 byte | 02 | u32 sayi | sayi x 29 byte ilan.
+    Ilan: u32 ilan_no | u32 item_id | u32 adet | u32 ? | 1 byte | u64 fiyat | u32 ?
+    Yapi tutmazsa None doner (mesajdaki hicbir kayit kullanilmaz)."""
+    n = len(body)
+    if n < 11 or struct.unpack("<H", body[0:2])[0] != MSG_TYPE or body[6] != LIST_SUBTYPE:
+        return None
+    count = struct.unpack("<I", body[7:11])[0]
+    if 11 + count * KAYIT_BOYU != n:
+        return None
+    recs = []
+    for k in range(count):
+        rec = body[11 + k * KAYIT_BOYU:11 + (k + 1) * KAYIT_BOYU]
+        listing, qty = struct.unpack("<I", rec[0:4])[0], struct.unpack("<I", rec[8:12])[0]
+        price = struct.unpack("<Q", rec[17:25])[0]
+        recs.append({"item_id": rec[4:8].hex(), "price": price, "qty": qty,
+                     "listing": listing, "raw": rec.hex()})
+    return recs
+
+
+def find_market_pages(packets, link_type):
+    """Tam gelmis her ust pazar listesi icin (anahtar, kayitlar) dondurur.
+    Anahtar = mesajin akistaki konumu; ayni sayfa iki kez islenmez."""
+    pages, bad = [], 0
+    for dport, start, chunk in extract_game_chunks(packets, link_type):
+        for off, body in iter_frames(chunk):
+            if len(body) < 7 or struct.unpack("<H", body[0:2])[0] != MSG_TYPE or body[6] != LIST_SUBTYPE:
+                continue
+            recs = parse_ust_pazar_frame(body)
+            if recs is None:
+                bad += 1
+            else:
+                pages.append(((dport, start + off), recs))
+    return pages, bad
+
+
+# ── KANIT KAYDI ──────────────────────────────────────────────────
+def save_evidence(tag, text, pcap_src=None):
+    try:
+        os.makedirs(KANIT_DIR, exist_ok=True)
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        base = os.path.join(KANIT_DIR, f"{stamp}_{tag}")
+        with open(base + ".txt", "w", encoding="utf-8") as f:
+            f.write(text)
+        if pcap_src and os.path.exists(pcap_src):
+            with open(pcap_src, "rb") as a, open(base + ".pcap", "wb") as b:
+                b.write(a.read())
+        files = sorted(os.listdir(KANIT_DIR))
+        stamps = sorted(set(x[:15] for x in files))
+        for old in stamps[:-KANIT_MAX]:
+            for x in files:
+                if x.startswith(old):
+                    try: os.remove(os.path.join(KANIT_DIR, x))
+                    except Exception: pass
+        log(f"  Kanit kaydedildi: {base}.txt")
+    except Exception as e:
+        log(f"  Kanit kaydedilemedi: {e}")
+
+
+# ── TEKRAR SINIRI ────────────────────────────────────────────────
+# Ayni ilan (anahtar) en fazla TEKRAR_MAX kez Telegram'a gider.
+# Sayac dosyada tutulur, script yeniden baslasa da korunur.
+# Ilk alarmdan TEKRAR_SURE saniye sonra sayac sifirlanir.
+def _tekrar_yukle():
+    try:
+        with open(TEKRAR_FILE, "r", encoding="utf-8") as f:
+            d = _json.load(f)
+        now = time.time()
+        return {k: v for k, v in d.items() if now - v.get("ilk", 0) < TEKRAR_SURE}
+    except Exception:
+        return {}
+
+def tekrar_izin(key):
+    """Alarm gonderilebilirse (sayi, True), sinir dolduysa (sayi, False) doner."""
+    d = _tekrar_yukle()
+    e = d.get(key) or {"ilk": time.time(), "sayi": 0}
+    if e["sayi"] >= TEKRAR_MAX:
+        return e["sayi"], False
+    e["sayi"] += 1
+    d[key] = e
+    try:
+        with open(TEKRAR_FILE, "w", encoding="utf-8") as f:
+            _json.dump(d, f)
+    except Exception as ex:
+        log(f"  Tekrar dosyasi yazilamadi: {ex}")
+    return e["sayi"], True
+
+
+def check_alarms(records, pcap_path=None):
     if not records:
-        log("  Parse edilen item yok.")
+        log("  Listede ilan yok.")
         return
-    log(f"  {len(records)} kayit / {len(set(r['item_id'] for r in records))} unique ID")
+    log(f"  {len(records)} ilan / {len(set(r['item_id'] for r in records))} unique ID")
     cheapest = {}
     for r in records:
         iid = r["item_id"]
@@ -6198,11 +6633,19 @@ def check_alarms(records):
             continue
         best = min(hits, key=lambda x: x["price"])
         if best["price"] <= alarm["max_price"]:
-            fire_alarm(alarm["name"], best["item_id"], best["price"], alarm["max_price"])
+            sayi, izin = tekrar_izin(f"{best['listing']}|{best['item_id']}|{best['price']}")
+            if not izin:
+                log(f"  = {alarm['name']:<40} {best['price']:>26,}  (ayni ilan {sayi} kez bildirildi, gonderilmedi)")
+                continue
+            fire_alarm(alarm["name"], best, alarm["max_price"], sayi)
             fired += 1
+            save_evidence("alarm_" + "".join(c if c.isalnum() else "_" for c in alarm["name"]), (
+                f"UST PAZAR ALARM\nitem   : {alarm['name']}\nid     : {best['item_id']}\n"
+                f"ilan   : {best['listing']}\nfiyat  : {best['price']:,}\nadet   : {best['qty']}\n"
+                f"esik   : {alarm['max_price']:,}\nham    : {best['raw']}\n"), pcap_path)
         else:
             pct = best["price"] / alarm["max_price"] * 100
-            log(f"  x {alarm['name']:<40} {best['price']:>20,}  (%{pct:.0f})")
+            log(f"  x {alarm['name']:<40} {best['price']:>26,}  (%{pct:.0f})")
     if fired == 0:
         log("  -> Esik altinda alarm yok.")
     else:
@@ -6229,16 +6672,18 @@ def send_telegram(text):
             log(f"  Telegram hatasi: {e}")
 
 
-def fire_alarm(item_name, item_id, price, max_price):
-    id_label = ID_MAP.get(item_id, item_id)
-    log(f"  *** ALARM *** {item_name} | {price:,} gold")
+def fire_alarm(item_name, rec, max_price, sayi=1):
+    id_label = ID_MAP.get(rec["item_id"], rec["item_id"])
+    log(f"  *** ALARM *** {item_name} | {rec['price']:,} gold | {rec['qty']} adet")
     lines = [
         "NOWA UST PAZAR ALARMI!",
         "",
         "Item  : " + item_name,
         "ID    : " + id_label,
-        "Fiyat : " + f"{price:,}" + " gold",
+        "Fiyat : " + f"{rec['price']:,}" + " gold",
+        "Adet  : " + str(rec["qty"]),
         "Esik  : " + f"{max_price:,}" + " gold",
+        f"Bildirim: {sayi}/{TEKRAR_MAX}",
         "",
         "Hemen ust pazari ac!"
     ]
@@ -6256,7 +6701,9 @@ def main():
     check_update()
     log("")
 
-    if not load_gist_config() or not ALARM_LIST:
+    if not load_gist_config():
+        log(f"  Gist okunamadi, script icindeki liste kullaniliyor ({len(ALARM_LIST)} alarm).")
+    if not ALARM_LIST:
         log("HATA: Alarm listesi bos!")
         log("  HTML'de ust pazar itemlerini aktifle -> 'Ust Pazar Alarm Indir'.")
         return
@@ -6269,40 +6716,59 @@ def main():
     ]))
     log("")
 
-    scan_no = 0
+    scan_no      = 0
+    tcpdump_proc = None
+    seen_pages   = set()
+    last_size    = -1
+    last_update  = time.time()
+    last_gist    = time.time()
 
     try:
         while True:
-            tcpdump_proc = start_tcpdump()
-            log("Dinleniyor... Ust pazari ac.")
+            if tcpdump_proc is None or tcpdump_proc.poll() is not None:
+                tcpdump_proc = start_tcpdump()
+                seen_pages   = set()
+                last_size    = -1
+                log("Dinleniyor... Ust pazari ac.")
 
-            while True:
-                time.sleep(3)
-                sz = get_pcap_size()
-                if sz < 100:
-                    continue
-                raw = pcap_kontrol_oku()
-                if ust_pazar_acik_mi(raw):
-                    log(f"  *** Ust pazar acildi! {BEKLEME_SURE}sn bekleniyor...")
-                    break
+            time.sleep(TARAMA_ARALIGI)
 
-            time.sleep(BEKLEME_SURE)
-            stop_tcpdump(tcpdump_proc)
+            now = time.time()
+            if now - last_update >= UPDATE_CHECK_INTERVAL:
+                last_update = now
+                check_update()
+            if now - last_gist >= GIST_RELOAD_INTERVAL:
+                last_gist = now
+                load_gist_config(quiet=True)
 
-            scan_no += 1
-            log(f"Tarama #{scan_no}")
-            stream = read_pcap_raw()
-            log(f"  Ham veri: {len(stream):,} byte")
+            size = get_pcap_size()
+            if size < 100 or size == last_size:
+                continue
+            last_size = size
 
-            if len(stream) < 100:
-                log("  Veri cok az, atlaniyor.")
-            else:
-                recs = parse_yeni_pazar(stream)
-                log(f"  Parse edilen item: {len(recs)}")
-                check_alarms(recs)
+            pkts, link_type = read_packets()
+            pages, bad = find_market_pages(pkts, link_type)
+            new_pages = [(k, r) for k, r in pages if k not in seen_pages]
+            if bad:
+                log(f"  ! {bad} bozuk ust pazar mesaji atlandi")
+            if new_pages:
+                scan_no += 1
+                recs = [r for _, rs in new_pages for r in rs]
+                log(f"Tarama #{scan_no}: {len(new_pages)} yeni sayfa")
+                for k, _ in new_pages:
+                    seen_pages.add(k)
+                check_alarms(recs, LOCAL_PCAP)
+                log("  Bitti. Dinleme devam ediyor.")
+                log("")
 
-            log("  Bitti. Ust pazari tekrar ac — bekleniyor.")
-            log("")
+            try: os.remove(LOCAL_PCAP)
+            except Exception: pass
+
+            # Dosya cok buyudu ve su an okunacak sayfa kalmadiysa tcpdump'i yenile
+            if size >= ROTATE_BYTES:
+                log("  Pcap buyudu, tcpdump yenileniyor...")
+                stop_tcpdump(tcpdump_proc)
+                tcpdump_proc = None
 
     except KeyboardInterrupt:
         log("\nKullanici durdurdu.")
@@ -6312,7 +6778,7 @@ def main():
         traceback.print_exc()
     finally:
         log("Tcpdump durduruluyor...")
-        run_shell("su -c 'killall tcpdump 2>/dev/null'")
+        stop_tcpdump(tcpdump_proc)
         log("Sistem durduruldu.")
 
 
