@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20260924191559
+Versiyon : 20260924223156
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,7 +16,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20260924191559"
+VERSION          = "20260924223156"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
@@ -1300,7 +1300,7 @@ ALARM_LIST = [
     {"name": "Warrior Titan Helmet +7", "max_price": 10000000, "item_ids": ["ff18380c", "0919380c"]},
     {"name": "Warrior Titan Helmet +8", "max_price": 220000000, "item_ids": ["0a19380c", "0018380c"]},
     {"name": "Warrior Titan Helmet +9", "max_price": 1000000000, "item_ids": ["0b19380c", "0118380c"]},
-    {"name": "Warrior Titan Helmet +10", "max_price": 10000000003000000000, "item_ids": ["0c19380c", "0218380c"]},
+    {"name": "Warrior Titan Helmet +10", "max_price": 3000000000, "item_ids": ["0c19380c", "0218380c"]},
     {"name": "Warrior Titan Helmet Reb+1", "max_price": 10000000, "item_ids": ["79afd00c"]},
     {"name": "Warrior Titan Helmet Reb+2", "max_price": 10000000, "item_ids": ["7aafd00c"]},
     {"name": "Warrior Titan Helmet Reb+3", "max_price": 40000000, "item_ids": ["7bafd00c"]},
@@ -2120,7 +2120,7 @@ ALARM_LIST = [
     {"name": "Mage Holy Titan Gauntlets Reb+7", "max_price": 220000000, "item_ids": ["c57c7310"]},
     {"name": "Mage Holy Titan Gauntlets Reb+8", "max_price": 500000000, "item_ids": ["c67c7310"]},
     {"name": "Mage Holy Titan Gauntlets Reb+9", "max_price": 500000000, "item_ids": ["c77c7310"]},
-    {"name": "Mage Holy Titan Gauntlets Reb+10", "max_price": 1000000000500000000, "item_ids": ["c87c7310"]},
+    {"name": "Mage Holy Titan Gauntlets Reb+10", "max_price": 1000000000, "item_ids": ["c87c7310"]},
     {"name": "Mage Holy Titan Gauntlets Reb+11", "max_price": 2000000000, "item_ids": ["c97c7310"]},
     {"name": "Mage Holy Titan Gauntlets Reb+12", "max_price": 2000000000, "item_ids": ["ca7c7310"]},
     {"name": "Mage Holy Titan Gauntlets Reb+13", "max_price": 2000000000, "item_ids": ["cb7c7310"]},
