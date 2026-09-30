@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20260929094530
+Versiyon : 20260930205147
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,7 +16,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20260929094530"
+VERSION          = "20260930205147"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
@@ -2379,7 +2379,7 @@ ALARM_LIST = [
     {"name": "STR Character Rune +8", "max_price": 2500000000, "item_ids": ["2855361d"]},
     {"name": "STR Character Rune +9", "max_price": 5000000000, "item_ids": ["2955361d"]},
     {"name": "STR Character Rune +10", "max_price": 5000000000, "item_ids": ["2a55361d"]},
-    {"name": "All Class Atack Character Rune +1", "max_price": 100000000, "item_ids": ["1156361d"]},
+    {"name": "All Class Atack Character Rune +1", "max_price": 15000000, "item_ids": ["1156361d"]},
     {"name": "All Class Atack Character Rune +2", "max_price": 250000000, "item_ids": ["1256361d"]},
     {"name": "All Class Atack Character Rune +3", "max_price": 250000000, "item_ids": ["1356361d"]},
     {"name": "All Class Atack Character Rune +4", "max_price": 500000000, "item_ids": ["1456361d"]},
