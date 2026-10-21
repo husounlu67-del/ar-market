@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20260930205147
+Versiyon : 20261021234346
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,7 +16,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20260930205147"
+VERSION          = "20261021234346"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
@@ -1054,7 +1054,6 @@ ALARM_LIST = [
     {"name": "Master Belt Of Str Old", "max_price": 1000000, "item_ids": ["738dd117"]},
     {"name": "Master Belt Of Str +0", "max_price": 1000000, "item_ids": []},
     {"name": "Master Belt Of Dexterity Old", "max_price": 2000000, "item_ids": ["5c91d117"]},
-    {"name": "Elarin Ring Old", "max_price": 1000000, "item_ids": ["ab94d117"]},
     {"name": "Fire Ring Old", "max_price": 500000, "item_ids": ["6e2b7a14"]},
     {"name": "Fire Ring +0", "max_price": 12000000, "item_ids": ["bc49b913"]},
     {"name": "Fire Ring +1", "max_price": 220000000, "item_ids": ["894bb913"]},
