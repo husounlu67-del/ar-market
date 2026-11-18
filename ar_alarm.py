@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20261021234346
+Versiyon : 20261118215226
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,7 +16,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20261021234346"
+VERSION          = "20261118215226"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
@@ -2368,10 +2368,10 @@ ALARM_LIST = [
     {"name": "Silver Token +1", "max_price": 50000, "item_ids": ["58a9e630"]},
     {"name": "Gold Token +1", "max_price": 1000000, "item_ids": ["40ade630"]},
     {"name": "Rune Box 1", "max_price": 8000000, "item_ids": ["28b1e630"]},
-    {"name": "STR Character Rune +1", "max_price": 50000000, "item_ids": ["2155361d"]},
-    {"name": "STR Character Rune +2", "max_price": 150000000, "item_ids": ["2255361d"]},
-    {"name": "STR Character Rune +3", "max_price": 350000000, "item_ids": ["2355361d"]},
-    {"name": "STR Character Rune +4", "max_price": 800000000, "item_ids": ["2455361d"]},
+    {"name": "STR Character Rune +1", "max_price": 5000000, "item_ids": ["2155361d"]},
+    {"name": "STR Character Rune +2", "max_price": 15000000, "item_ids": ["2255361d"]},
+    {"name": "STR Character Rune +3", "max_price": 35000000, "item_ids": ["2355361d"]},
+    {"name": "STR Character Rune +4", "max_price": 80000000, "item_ids": ["2455361d"]},
     {"name": "STR Character Rune +5", "max_price": 1500000000, "item_ids": ["2555361d"]},
     {"name": "STR Character Rune +6", "max_price": 2500000000, "item_ids": ["2655361d"]},
     {"name": "STR Character Rune +7", "max_price": 2520000000, "item_ids": ["2755361d"]},
