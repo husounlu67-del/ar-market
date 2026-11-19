@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20261118215226
+Versiyon : 20261119072428
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,7 +16,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20261118215226"
+VERSION          = "20261119072428"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
@@ -1056,7 +1056,7 @@ ALARM_LIST = [
     {"name": "Master Belt Of Dexterity Old", "max_price": 2000000, "item_ids": ["5c91d117"]},
     {"name": "Fire Ring Old", "max_price": 500000, "item_ids": ["6e2b7a14"]},
     {"name": "Fire Ring +0", "max_price": 12000000, "item_ids": ["bc49b913"]},
-    {"name": "Fire Ring +1", "max_price": 220000000, "item_ids": ["894bb913"]},
+    {"name": "Fire Ring +1", "max_price": 150000000, "item_ids": ["894bb913"]},
     {"name": "Fire Ring +2", "max_price": 220000000, "item_ids": ["8a4bb913"]},
     {"name": "Fire Ring +3", "max_price": 220000000, "item_ids": ["8b4bb913"]},
     {"name": "Frozen Ring Old", "max_price": 500000, "item_ids": ["3f987e14"]},
