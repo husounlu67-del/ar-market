@@ -1,7 +1,7 @@
 """
 AR MARKET - PAZAR ALARM SISTEMI (Termux / Telefon)
 =====================================================
-Versiyon : 20261119072428
+Versiyon : 20261119073453
 Calistir : python ar_alarm.py
 Durdur   : Ctrl+C
 
@@ -16,7 +16,7 @@ from datetime import datetime
 # =============================================
 #  AYARLAR
 # =============================================
-VERSION          = "20261119072428"
+VERSION          = "20261119073453"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/husounlu67-del/ar-market/main/ar_alarm.py"
 SCRIPT_PATH      = os.path.abspath(__file__)
 PCAP_PATH        = "/data/local/tmp/ar_alarm_scan.pcap"
@@ -1077,18 +1077,18 @@ ALARM_LIST = [
     {"name": "Holy Pendant +3", "max_price": 220000000, "item_ids": ["f37e1413"]},
     {"name": "Courage Pendant Old", "max_price": 1000000, "item_ids": ["460b6414"]},
     {"name": "Courage Pendant +0", "max_price": 10000000, "item_ids": ["237e1413"]},
-    {"name": "Courage Pendant +1", "max_price": 100000000, "item_ids": ["dd7e1413"]},
+    {"name": "Courage Pendant +1", "max_price": 50000000, "item_ids": ["dd7e1413"]},
     {"name": "Courage Pendant +2", "max_price": 220000000, "item_ids": ["de7e1413"]},
     {"name": "Courage Pendant +3", "max_price": 220000000, "item_ids": ["df7e1413"]},
     {"name": "Elderwood Belt Old", "max_price": 1000000, "item_ids": ["97de8b14"]},
-    {"name": "Elderwood Belt +0", "max_price": 25000000, "item_ids": ["013f4a14"]},
+    {"name": "Elderwood Belt +0", "max_price": 35000000, "item_ids": ["013f4a14"]},
     {"name": "Elderwood Belt +1", "max_price": 220000000, "item_ids": ["3f404a14"]},
     {"name": "Elderwood Belt +2", "max_price": 220000000, "item_ids": ["40404a14"]},
     {"name": "Elderwood Belt +3", "max_price": 220000000, "item_ids": ["41404a14"]},
     {"name": "Skull Belt Old", "max_price": 500000, "item_ids": ["684b9014"]},
     {"name": "Skull Belt +0", "max_price": 1000000, "item_ids": ["033f4a14"]},
     {"name": "Skull Belt +1", "max_price": 30000000, "item_ids": ["53404a14"]},
-    {"name": "Skull Belt +2", "max_price": 150000000, "item_ids": ["54404a14"]},
+    {"name": "Skull Belt +2", "max_price": 50000000, "item_ids": ["54404a14"]},
     {"name": "Skull Belt +3", "max_price": 220000000, "item_ids": ["55404a14"]},
     {"name": "Belt of STR Old", "max_price": 1000000, "item_ids": ["58ef4b14"]},
     {"name": "Belt of STR +0", "max_price": 20000000, "item_ids": ["9ec54b14"]},
@@ -1110,20 +1110,20 @@ ALARM_LIST = [
     {"name": "Courage Earring +2", "max_price": 220000000, "item_ids": ["027c8012"]},
     {"name": "Courage Earring +3", "max_price": 220000000, "item_ids": ["037c8012"]},
     {"name": "Shadow Earring +0", "max_price": 500000, "item_ids": []},
-    {"name": "Shaman Silver Earring +0", "max_price": 50000000, "item_ids": ["7b7b8012"]},
+    {"name": "Shaman Silver Earring +0", "max_price": 40000000, "item_ids": ["7b7b8012"]},
     {"name": "Shaman Silver Earring +1", "max_price": 150000000, "item_ids": ["157c8012"]},
     {"name": "Shaman Silver Earring +2", "max_price": 220000000, "item_ids": ["167c8012"]},
     {"name": "Shaman Silver Earring +3", "max_price": 220000000, "item_ids": ["177c8012"]},
-    {"name": "Rogue Silver Earring +0", "max_price": 70000000, "item_ids": ["b6888312"]},
+    {"name": "Rogue Silver Earring +0", "max_price": 50000000, "item_ids": ["b6888312"]},
     {"name": "Rogue Silver Earring +1", "max_price": 220000000, "item_ids": ["23898312"]},
     {"name": "Rogue Silver Earring +2", "max_price": 220000000, "item_ids": ["24898312"]},
     {"name": "Rogue Silver Earring +3", "max_price": 220000000, "item_ids": ["25898312"]},
     {"name": "Hero Ring Old", "max_price": 1000000, "item_ids": ["9dbe7514"]},
-    {"name": "Hero Ring +0", "max_price": 70000000, "item_ids": ["2f15ad13"]},
+    {"name": "Hero Ring +0", "max_price": 50000000, "item_ids": ["2f15ad13"]},
     {"name": "Hero Ring +1", "max_price": 220000000, "item_ids": ["5d15ad13"]},
     {"name": "Hero Ring +2", "max_price": 220000000, "item_ids": ["5e15ad13"]},
     {"name": "Hero Ring +3", "max_price": 220000000, "item_ids": ["5f15ad13"]},
-    {"name": "Blue Drake Neck +0", "max_price": 1000000, "item_ids": ["501f1c13"]},
+    {"name": "Blue Drake Neck +0", "max_price": 500000, "item_ids": ["501f1c13"]},
     {"name": "Amulet Of Evil Old", "max_price": 1000000, "item_ids": ["b3851b13"]},
     {"name": "Amulet Of Evil +0", "max_price": 10000000, "item_ids": ["a6981a13"]},
     {"name": "Amulet Of Evil +1", "max_price": 220000000, "item_ids": ["7b991a13"]},
@@ -1143,12 +1143,12 @@ ALARM_LIST = [
     {"name": "Secret Power Ring +2", "max_price": 220000000, "item_ids": ["7aa9b113"]},
     {"name": "Secret Power Ring +3", "max_price": 220000000, "item_ids": ["7ba9b113"]},
     {"name": "Elderwood Ring Old", "max_price": 1000000, "item_ids": ["b754b513"]},
-    {"name": "Elderwood Ring +0", "max_price": 100000000, "item_ids": ["59b6b413"]},
+    {"name": "Elderwood Ring +0", "max_price": 50000000, "item_ids": ["59b6b413"]},
     {"name": "Elderwood Ring +1", "max_price": 220000000, "item_ids": ["e1b6b413"]},
     {"name": "Elderwood Ring +2", "max_price": 220000000, "item_ids": ["e2b6b413"]},
     {"name": "Elderwood Ring +3", "max_price": 220000000, "item_ids": ["e3b6b413"]},
     {"name": "Ring of Shadow Old", "max_price": 5000000, "item_ids": ["cc517114"]},
-    {"name": "Ring of Shadow +0", "max_price": 220000000, "item_ids": ["71b1ad13"]},
+    {"name": "Ring of Shadow +0", "max_price": 150000000, "item_ids": ["71b1ad13"]},
     {"name": "Ring of Shadow +1", "max_price": 220000000, "item_ids": ["b1b1ad13"]},
     {"name": "Ring of Shadow +2", "max_price": 220000000, "item_ids": ["b2b1ad13"]},
     {"name": "Ring of Shadow +3", "max_price": 220000000, "item_ids": ["b3b1ad13"]},
@@ -2388,7 +2388,7 @@ ALARM_LIST = [
     {"name": "All Class Atack Character Rune +8", "max_price": 5000000000, "item_ids": ["1856361d"]},
     {"name": "All Class Atack Character Rune +9", "max_price": 5000000000, "item_ids": ["1956361d"]},
     {"name": "All Class Atack Character Rune +10", "max_price": 5000000000, "item_ids": ["1a56361d"]},
-    {"name": "Dex Chacater Rune +1", "max_price": 40000000, "item_ids": ["3f55361d"]},
+    {"name": "Dex Chacater Rune +1", "max_price": 30000000, "item_ids": ["3f55361d"]},
     {"name": "Dex Chacater Rune +2", "max_price": 100000000, "item_ids": ["4055361d"]},
     {"name": "Dex Chacater Rune +3", "max_price": 200000000, "item_ids": ["4155361d"]},
     {"name": "Dex Chacater Rune +4", "max_price": 400000000, "item_ids": ["4255361d"]},
@@ -2408,7 +2408,7 @@ ALARM_LIST = [
     {"name": "Max Def Character Rune +8", "max_price": 5000000000, "item_ids": ["da57361d"]},
     {"name": "Max Def Character Rune +9", "max_price": 5000000000, "item_ids": ["db57361d"]},
     {"name": "Max Def Character Rune +10", "max_price": 5000000000, "item_ids": ["dc57361d"]},
-    {"name": "Max Hp Character Rune +1", "max_price": 10000000, "item_ids": ["9757361d"]},
+    {"name": "Max Hp Character Rune +1", "max_price": 5000000, "item_ids": ["9757361d"]},
     {"name": "Max Hp Character Rune +2", "max_price": 20000000, "item_ids": ["9857361d"]},
     {"name": "Max Hp Character Rune +3", "max_price": 50000000, "item_ids": ["9957361d"]},
     {"name": "Max Hp Character Rune +4", "max_price": 200000000, "item_ids": ["9a57361d"]},
@@ -2428,10 +2428,10 @@ ALARM_LIST = [
     {"name": "Warrior Class Def Character Rune +8", "max_price": 5000000000, "item_ids": ["cc56361d"]},
     {"name": "Warrior Class Def Character Rune +9", "max_price": 5000000000, "item_ids": ["cd56361d"]},
     {"name": "Warrior Class Def Character Rune +10", "max_price": 5000000000, "item_ids": ["ce56361d"]},
-    {"name": "All Class Def Character Rune +1", "max_price": 100000000, "item_ids": ["a756361d"]},
-    {"name": "All Class Def Character Rune +2", "max_price": 300000000, "item_ids": ["a856361d"]},
-    {"name": "All Class Def Character Rune +3", "max_price": 1000000000, "item_ids": ["a956361d"]},
-    {"name": "All Class Def Character Rune +4", "max_price": 2000000000, "item_ids": ["aa56361d"]},
+    {"name": "All Class Def Character Rune +1", "max_price": 50000000, "item_ids": ["a756361d"]},
+    {"name": "All Class Def Character Rune +2", "max_price": 150000000, "item_ids": ["a856361d"]},
+    {"name": "All Class Def Character Rune +3", "max_price": 450000000, "item_ids": ["a956361d"]},
+    {"name": "All Class Def Character Rune +4", "max_price": 1400000000, "item_ids": ["aa56361d"]},
     {"name": "All Class Def Character Rune +5", "max_price": 2500000000, "item_ids": ["ab56361d"]},
     {"name": "All Class Def Character Rune +6", "max_price": 2500000000, "item_ids": ["ac56361d"]},
     {"name": "All Class Def Character Rune +7", "max_price": 5000000000, "item_ids": ["ad56361d"]},
@@ -2458,7 +2458,7 @@ ALARM_LIST = [
     {"name": "Drop Bonus Character Rune +8", "max_price": 5000000000, "item_ids": ["be55361d"]},
     {"name": "Drop Bonus Character Rune +9", "max_price": 5000000000, "item_ids": ["bf55361d"]},
     {"name": "Drop Bonus Character Rune +10", "max_price": 5000000000, "item_ids": ["c055361d"]},
-    {"name": "WP. B. Character Rune +1", "max_price": 5000000, "item_ids": ["3d57361d"]},
+    {"name": "WP. B. Character Rune +1", "max_price": 1000000, "item_ids": ["3d57361d"]},
     {"name": "WP. B. Character Rune +2", "max_price": 15000000, "item_ids": ["3e57361d"]},
     {"name": "WP. B. Character Rune +3", "max_price": 40000000, "item_ids": ["3f57361d"]},
     {"name": "WP. B. Character Rune +4", "max_price": 100000000, "item_ids": ["4057361d"]},
